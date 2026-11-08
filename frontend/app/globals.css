@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Soko brand palette */
+@theme inline {
+  --color-forest: #142d27;
+  --color-lime: #d9f27e;
+  --color-ivory: #f7f5ed;
+  --color-charcoal: #26332f;
+  --color-muted: #5f6b67;
+  --color-line: #e3e0d4;
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-manrope);
+}
+
+body {
+  background: var(--color-ivory);
+  color: var(--color-charcoal);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-manrope), sans-serif;
+}
