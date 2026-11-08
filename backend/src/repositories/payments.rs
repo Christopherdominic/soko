@@ -1,8 +1,8 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{PgConnection, PgPool, Postgres, QueryBuilder};
 use uuid::Uuid;
 
-use crate::models::{Payment, PaymentStatus, Receipt};
+use crate::models::{Payment, PaymentStatus, PaymentWithReceipt, Receipt};
 
 macro_rules! payment_columns {
     () => {
@@ -72,9 +72,14 @@ pub async fn lock_by_hash(
     .await
 }
 
-#[derive(Default)]
+/// History filters. Dates are calendar days in the merchant's time zone (inclusive).
 pub struct ListFilter {
     pub status: Option<PaymentStatus>,
+    pub from: Option<NaiveDate>,
+    pub to: Option<NaiveDate>,
+    /// Matches description, receipt number, or payment-hash prefix.
+    pub search: Option<String>,
+    pub tz: String,
     pub limit: i64,
     pub offset: i64,
 }
@@ -83,21 +88,51 @@ pub async fn list_for_merchant(
     db: &PgPool,
     merchant_id: Uuid,
     f: &ListFilter,
-) -> sqlx::Result<Vec<Payment>> {
-    let mut q: QueryBuilder<Postgres> = QueryBuilder::new(concat!(
-        "SELECT ",
-        payment_columns!(),
-        " FROM payments WHERE merchant_id = "
-    ));
+) -> sqlx::Result<Vec<PaymentWithReceipt>> {
+    let mut q: QueryBuilder<Postgres> = QueryBuilder::new(
+        "SELECT p.id, p.merchant_id, p.payment_hash, p.payment_request, p.amount_sats, \
+         p.description, p.status, p.amount_paid_msat, p.is_demo, p.expires_at, p.settled_at, \
+         p.created_at, p.updated_at, r.receipt_number \
+         FROM payments p LEFT JOIN receipts r ON r.payment_id = p.id WHERE p.merchant_id = ",
+    );
     q.push_bind(merchant_id);
     if let Some(status) = f.status {
-        q.push(" AND status = ").push_bind(status);
+        q.push(" AND p.status = ").push_bind(status);
     }
-    q.push(" ORDER BY created_at DESC LIMIT ")
+    if let Some(from) = f.from {
+        q.push(" AND p.created_at >= (")
+            .push_bind(from)
+            .push("::date)::timestamp AT TIME ZONE ")
+            .push_bind(f.tz.clone());
+    }
+    if let Some(to) = f.to {
+        q.push(" AND p.created_at < (")
+            .push_bind(to)
+            .push("::date + 1)::timestamp AT TIME ZONE ")
+            .push_bind(f.tz.clone());
+    }
+    if let Some(term) = &f.search {
+        let like = format!("%{}%", escape_like(term));
+        let prefix = format!("{}%", escape_like(&term.to_lowercase()));
+        q.push(" AND (p.description ILIKE ")
+            .push_bind(like.clone())
+            .push(" OR r.receipt_number ILIKE ")
+            .push_bind(like)
+            .push(" OR p.payment_hash LIKE ")
+            .push_bind(prefix)
+            .push(")");
+    }
+    q.push(" ORDER BY p.created_at DESC LIMIT ")
         .push_bind(f.limit)
         .push(" OFFSET ")
         .push_bind(f.offset);
-    q.build_query_as::<Payment>().fetch_all(db).await
+    q.build_query_as::<PaymentWithReceipt>().fetch_all(db).await
+}
+
+fn escape_like(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 pub async fn list_pending(db: &PgPool, limit: i64) -> sqlx::Result<Vec<Payment>> {
@@ -176,7 +211,8 @@ pub async fn insert_receipt(
 
 pub async fn find_receipt(db: &PgPool, payment_id: Uuid) -> sqlx::Result<Option<Receipt>> {
     sqlx::query_as::<_, Receipt>(
-        "SELECT id, receipt_number, payment_id, merchant_id, amount_sats, issued_at
+        "SELECT id, receipt_number, payment_id, merchant_id, amount_sats, issued_at,
+                commitment_salt, nostr_event
          FROM receipts WHERE payment_id = $1",
     )
     .bind(payment_id)

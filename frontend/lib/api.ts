@@ -1,4 +1,25 @@
-import type { Merchant, Payment, PaymentStatus, Receipt } from "@/types/api";
+import type {
+  DashboardSummary,
+  MerchantReceipt,
+  MerchantWithKey,
+  NostrEvent,
+  Payment,
+  PaymentList,
+  PaymentStatus,
+  PublicReceipt,
+  VerifyResult,
+} from "@/types/api";
+
+export const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+export interface PaymentFilters {
+  status?: PaymentStatus;
+  q?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -38,20 +59,27 @@ const post = <T>(path: string, data?: unknown) =>
   request<T>(path, { method: "POST", body: data === undefined ? undefined : JSON.stringify(data) });
 
 export const api = {
-  me: () => request<Merchant>("/auth/me"),
-  login: (email: string, password: string) => post<Merchant>("/auth/login", { email, password }),
+  me: () => request<MerchantWithKey>("/auth/me"),
+  login: (email: string, password: string) => post<MerchantWithKey>("/auth/login", { email, password }),
   register: (business_name: string, email: string, password: string) =>
-    post<Merchant>("/auth/register", { business_name, email, password }),
+    post<MerchantWithKey>("/auth/register", { business_name, email, password }),
   logout: () => post<void>("/auth/logout"),
 
   createInvoice: (amount_sats: number, description?: string) =>
     post<Payment>("/payments/invoices", { amount_sats, description: description || null }),
   payment: (hash: string) => request<Payment>(`/payments/${encodeURIComponent(hash)}`),
-  payments: (opts: { status?: PaymentStatus; limit?: number } = {}) => {
+  payments: (f: PaymentFilters = {}) => {
     const q = new URLSearchParams();
-    if (opts.status) q.set("status", opts.status);
-    if (opts.limit) q.set("limit", String(opts.limit));
-    return request<{ payments: Payment[] }>(`/payments?${q}`);
+    for (const [k, v] of Object.entries(f)) {
+      if (v !== undefined && v !== "") q.set(k, String(v));
+    }
+    if (f.from || f.to) q.set("tz", browserTimeZone());
+    return request<PaymentList>(`/payments?${q}`);
   },
-  receipt: (hash: string) => request<Receipt>(`/payments/${encodeURIComponent(hash)}/receipt`),
+  receipt: (hash: string) => request<MerchantReceipt>(`/payments/${encodeURIComponent(hash)}/receipt`),
+  dashboard: () =>
+    request<DashboardSummary>(`/dashboard/summary?tz=${encodeURIComponent(browserTimeZone())}`),
+  publicReceipt: (number: string) =>
+    request<PublicReceipt>(`/public/receipts/${encodeURIComponent(number)}`),
+  verifyReceipt: (event: NostrEvent) => post<VerifyResult>("/public/receipts/verify", event),
 };

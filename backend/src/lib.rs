@@ -4,6 +4,7 @@ pub mod handlers;
 pub mod lightning;
 pub mod middleware;
 pub mod models;
+pub mod nostr;
 pub mod repositories;
 pub mod routes;
 pub mod services;

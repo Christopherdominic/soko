@@ -1,5 +1,6 @@
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderValue, Method, header},
     routing::{get, post},
 };
@@ -17,7 +18,7 @@ pub fn router(state: AppState) -> Router {
         Err(_) => CorsLayer::new(),
     };
 
-    use handlers::{auth, health, payments};
+    use handlers::{auth, dashboard, health, payments, public};
     let api = Router::new()
         .route("/health", get(health::health))
         .route("/auth/register", post(auth::register))
@@ -30,6 +31,15 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/payments/{payment_hash}/receipt",
             get(payments::get_receipt),
+        )
+        .route("/dashboard/summary", get(dashboard::summary))
+        .route(
+            "/public/receipts/{receipt_number}",
+            get(public::get_receipt),
+        )
+        .route(
+            "/public/receipts/verify",
+            post(public::verify_receipt).layer(DefaultBodyLimit::max(16 * 1024)),
         );
 
     Router::new()

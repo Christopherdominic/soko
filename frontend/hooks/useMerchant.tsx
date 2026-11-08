@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import type { Merchant } from "@/types/api";
+import type { MerchantWithKey as Merchant } from "@/types/api";
 
 const MerchantContext = createContext<Merchant | null>(null);
 

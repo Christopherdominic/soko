@@ -3,17 +3,20 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::json::ApiJson;
+use super::{json::ApiJson, tz};
 use crate::{
     errors::{ApiError, ApiResult},
     lightning::lnd::is_hex_hash,
     middleware::auth::CurrentMerchant,
     models::{Payment, PaymentStatus, Receipt},
     repositories::payments::{self as repo, ListFilter},
-    services::payments as svc,
+    services::{
+        payments as svc,
+        receipts::{self, ReceiptSource, SignedReceipt},
+    },
     state::AppState,
 };
 
@@ -100,6 +103,12 @@ pub async fn get_payment(
 #[derive(Deserialize)]
 pub struct ListQuery {
     status: Option<String>,
+    /// Free-text search: description, receipt number or payment-hash prefix.
+    q: Option<String>,
+    /// Inclusive calendar dates (YYYY-MM-DD) in `tz`.
+    from: Option<NaiveDate>,
+    to: Option<NaiveDate>,
+    tz: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
 }
@@ -107,9 +116,12 @@ pub struct ListQuery {
 #[derive(Serialize)]
 pub struct ListResponse {
     payments: Vec<PaymentResponse>,
+    has_more: bool,
 }
 
-/// GET /api/payments?status=&limit=&offset=
+const MAX_SEARCH_CHARS: usize = 64;
+
+/// GET /api/payments?status=&q=&from=&to=&tz=&limit=&offset=
 pub async fn list_payments(
     State(state): State<AppState>,
     CurrentMerchant(merchant): CurrentMerchant,
@@ -122,17 +134,46 @@ pub async fn list_payments(
                 .ok_or_else(|| ApiError::Validation("Unknown status filter".into()))?,
         ),
     };
+    if let (Some(from), Some(to)) = (q.from, q.to)
+        && from > to
+    {
+        return Err(ApiError::Validation(
+            "'From' date must be before 'to' date".into(),
+        ));
+    }
+    let search = q.q.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    if search.is_some_and(|s| s.chars().count() > MAX_SEARCH_CHARS) {
+        return Err(ApiError::Validation("Search is too long".into()));
+    }
+    let tz = if q.from.is_some() || q.to.is_some() {
+        tz::resolve(&state.db, q.tz.as_deref()).await?
+    } else {
+        "UTC".into()
+    };
+    let limit = q.limit.unwrap_or(20).clamp(1, 100);
     let filter = ListFilter {
         status,
-        limit: q.limit.unwrap_or(20).clamp(1, 100),
+        from: q.from,
+        to: q.to,
+        search: search.map(str::to_owned),
+        tz,
+        // Fetch one extra row to know whether there is another page.
+        limit: limit + 1,
         offset: q.offset.unwrap_or(0).max(0),
     };
-    let payments = repo::list_for_merchant(&state.db, merchant.id, &filter).await?;
+    let mut rows = repo::list_for_merchant(&state.db, merchant.id, &filter).await?;
+    let has_more = rows.len() as i64 > limit;
+    rows.truncate(limit as usize);
     Ok(Json(ListResponse {
-        payments: payments
+        payments: rows
             .into_iter()
-            .map(|p| PaymentResponse::new(p, None))
+            .map(|r| {
+                let mut p = PaymentResponse::new(r.payment, None);
+                p.receipt_number = r.receipt_number;
+                p
+            })
             .collect(),
+        has_more,
     }))
 }
 
@@ -146,6 +187,9 @@ pub struct ReceiptResponse {
     payment_hash: String,
     paid_at: Option<DateTime<Utc>>,
     issued_at: DateTime<Utc>,
+    /// Shareable customer link (no login needed).
+    public_path: String,
+    nostr: Option<SignedReceipt>,
 }
 
 /// GET /api/payments/{payment_hash}/receipt
@@ -158,7 +202,24 @@ pub async fn get_receipt(
     let receipt = repo::find_receipt(&state.db, payment.id)
         .await?
         .ok_or(ApiError::NotFound)?;
+    let nostr = receipts::ensure_signed(
+        &state.db,
+        state.nostr.as_deref(),
+        ReceiptSource {
+            receipt_id: receipt.id,
+            merchant_id: merchant.id,
+            receipt_number: &receipt.receipt_number,
+            amount_sats: receipt.amount_sats,
+            paid_at: payment.settled_at.unwrap_or(receipt.issued_at),
+            payment_hash: &payment.payment_hash,
+            commitment_salt: receipt.commitment_salt.as_deref(),
+            nostr_event: receipt.nostr_event.as_ref(),
+        },
+    )
+    .await
+    .map_err(ApiError::Internal)?;
     Ok(Json(ReceiptResponse {
+        public_path: format!("/r/{}", receipt.receipt_number),
         receipt_number: receipt.receipt_number,
         business_name: merchant.business_name,
         amount_sats: receipt.amount_sats,
@@ -167,6 +228,7 @@ pub async fn get_receipt(
         payment_hash: payment.payment_hash,
         paid_at: payment.settled_at,
         issued_at: receipt.issued_at,
+        nostr,
     }))
 }
 

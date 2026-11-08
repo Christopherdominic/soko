@@ -33,12 +33,17 @@ This is a working document. It is reviewed again in Milestone 4.
 | CSRF | `SameSite=Strict` plus mandatory `application/json` on writes, which simple cross-site forms can't send. |
 | Account discovery via login | Identical error for unknown email and wrong password; dummy Argon2 check equalises timing. |
 | Secrets in logs or responses | Macaroon header is marked sensitive and redacted in `Debug`; LND error bodies are never forwarded; internal errors return a generic message. |
+| Forged or edited receipts | Receipts are Schnorr-signed Nostr events; editing any field breaks the event id or signature. The verify endpoint also checks the key belongs to a merchant here and the event matches the stored one. Covered by tests. |
+| Receipt-signing key theft from DB | Keys are derived from `SOKO_NOSTR_SECRET` (env only); the DB stores public keys only. |
+| Public receipts leaking private data | Public event and `/r/{number}` contain no payment hash, invoice, description, email or customer data (tested). The payment link is a salted commitment. Relay publishing is off. |
+| Receipt-number guessing | ~50 bits of randomness per number; the public view reveals only paper-receipt fields. |
 | SQL injection | All values are bound parameters; sqlx 0.9 rejects SQL strings built at runtime. |
 | Path injection into LND URLs | Payment hashes must match `^[0-9a-f]{64}$` before use. |
 
 ## Known gaps (to address before production)
 
-- No rate limiting on login or invoice creation yet.
+- No rate limiting on login, invoice creation or the public receipt/verify endpoints yet.
+- Rotating `SOKO_NOSTR_SECRET` changes every merchant's public key, so previously issued receipts stop matching a known merchant. Treat it as long-lived.
 - Registration is open by default (`SOKO_ALLOW_REGISTRATION=true`); disable it after setup.
 - No 2FA or password reset.
 - The demo uses Polar regtest only; mainnet needs HTTPS, a hardened host and backups of LND channel state (the merchant's responsibility).

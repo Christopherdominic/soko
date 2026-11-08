@@ -18,6 +18,7 @@ use serde_json::Value;
 use soko_backend::{
     config::{Config, LndConfig},
     lightning::{CreatedInvoice, InvoiceState, LightningBackend, NodeHealth, NodeInvoice},
+    nostr::NostrSigner,
     routes,
     state::AppState,
 };
@@ -126,6 +127,7 @@ impl TestApp {
             allow_registration: true,
             cookie_secure: false,
             session_ttl_hours: 24,
+            nostr_secret: None,
             lnd: LndConfig {
                 rest_url: "https://localhost:1".parse().unwrap(),
                 tls_cert_pem: vec![],
@@ -136,6 +138,7 @@ impl TestApp {
             db: db.clone(),
             lightning: ln.clone(),
             config: Arc::new(config),
+            nostr: Some(Arc::new(NostrSigner::new([42u8; 32]))),
         };
         Self {
             router: routes::router(state),
@@ -223,4 +226,22 @@ impl TestApp {
 /// "soko_session=abc; HttpOnly; ..." -> "soko_session=abc"
 pub fn cookie_from(set_cookie: &str) -> String {
     set_cookie.split(';').next().unwrap().to_string()
+}
+
+/// Creates an invoice and marks it paid as if LND reported settlement.
+pub async fn paid_invoice(app: &TestApp, cookie: &str, amount: i64, description: &str) -> String {
+    let r = app
+        .request(
+            "POST",
+            "/api/payments/invoices",
+            Some(cookie),
+            Some(serde_json::json!({ "amount_sats": amount, "description": description })),
+        )
+        .await;
+    let hash = r.body["payment_hash"].as_str().unwrap().to_string();
+    let inv = app.ln.settle(&hash);
+    soko_backend::services::payments::apply_node_invoice(&app.db, &inv)
+        .await
+        .unwrap();
+    hash
 }

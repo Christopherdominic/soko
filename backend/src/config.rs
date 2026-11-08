@@ -15,7 +15,19 @@ pub struct Config {
     /// Mark the session cookie `Secure` (required when served over HTTPS).
     pub cookie_secure: bool,
     pub session_ttl_hours: i64,
+    /// Hex master secret for deriving merchant Nostr keys. None disables signing.
+    pub nostr_secret: Option<Redacted>,
     pub lnd: LndConfig,
+}
+
+/// A secret string whose `Debug` output never shows the value.
+#[derive(Clone)]
+pub struct Redacted(pub String);
+
+impl fmt::Debug for Redacted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
 }
 
 #[derive(Clone)]
@@ -60,6 +72,11 @@ impl Config {
             bail!("SOKO_SESSION_TTL_HOURS must be between 1 and 720");
         }
 
+        let nostr_secret = std::env::var("SOKO_NOSTR_SECRET")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(Redacted);
+
         let rest_url: Url = required("LND_REST_URL")?
             .parse()
             .context("LND_REST_URL must be a URL")?;
@@ -81,6 +98,7 @@ impl Config {
             allow_registration,
             cookie_secure,
             session_ttl_hours,
+            nostr_secret,
             lnd: LndConfig {
                 rest_url,
                 tls_cert_pem,

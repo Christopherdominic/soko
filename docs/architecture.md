@@ -50,12 +50,16 @@ For the hackathon MVP, one Soko deployment connects to one LND node (one merchan
 
 States: `pending`, `paid`, `expired`, `failed` (`failed` is reserved for invoices LND no longer knows, or that were underpaid).
 
-## Receipts and Nostr (Milestone 3)
+## Receipts and Nostr
 
-- Each paid payment gets one receipt with a human-friendly number.
-- The receipt is signed as a Nostr (NIP-01) event using a merchant key held by the backend. Anyone with the merchant's public key can verify it.
-- The public event contains only: receipt number, amount, denomination, timestamp and a **salted hash commitment** to the payment. It never includes the payment hash, preimage, invoice, customer data or description.
-- Publishing to relays is opt-in. By default the signed event is just downloadable and verifiable offline.
+- Each paid payment gets exactly one receipt (`SK-XXXXX-XXXXX`), created in the same transaction that marks it paid.
+- The first time a receipt is viewed, the backend signs it as a **Nostr event** (NIP-01, kind 30078, `t=soko-receipt`) with a BIP-340 Schnorr signature. The event is stored, so every later view returns the identical event.
+- **Merchant keys are derived, not stored:** `HMAC-SHA256(SOKO_NOSTR_SECRET, merchant_id)`. The database holds only the public key, so a database leak cannot forge receipts.
+- **Public event content:** receipt number, amount, unit, paid-at time and `commitment = SHA-256("soko/receipt-commitment/v1/" ‖ salt ‖ payment_hash)`. It never includes the payment hash, preimage, invoice, description or customer data.
+- **Proving a receipt belongs to a payment:** the receipt page shows the salt as a *verification code*. A payer who has the payment hash in their wallet can recompute the commitment. Nobody else can link the event to a Lightning payment.
+- **Verification:** `POST /api/public/receipts/verify` checks the signature, that the key belongs to a merchant on this server, and that the event is the one on record. Any Nostr tool can check the signature independently.
+- **Customer link:** `/r/{receipt_number}` is a public page showing only what belongs on a paper receipt: business, amount, date and number.
+- **Relays:** publishing to Nostr relays is deliberately not automatic, because it would make a merchant's sales history public. The signed event can be downloaded and published by the merchant if they choose.
 
 ## Project structure
 
@@ -72,7 +76,7 @@ soko/
       services/       auth helpers, payment verification, background watcher
       repositories/   SQL access (merchants, sessions, payments, receipts)
       models/         domain types
-      nostr/          receipt signing (M3)
+      nostr/          NIP-01 events, Schnorr signing/verification, commitments
       middleware/     CurrentMerchant session extractor
     migrations/
     tests/
@@ -86,6 +90,6 @@ soko/
 
 1. **Foundation**: monorepo, Axum, Postgres plus migrations, LND client with TLS pinning, `/api/health`, Next.js shell with `/api` proxy. ✅
 2. **Lightning payments**: merchant login (Argon2 plus `HttpOnly` session cookie, moved up from M3), create invoice, QR code, watcher (stream plus reconciliation), idempotent verification, receipts issued on settlement, payment status page, tests against a fake node, full lifecycle verified on Polar. ✅
-3. **Merchant experience**: dashboard summary, history with search and date filters, receipt page, Nostr-signed receipts.
+3. **Merchant experience**: dashboard summary (time-zone aware, demo rows excluded), history with search, status and date filters and paging, merchant and public receipt pages, Nostr-signed receipts with a verify page. ✅
 4. **Submission readiness**: security review, Dockerised backend and frontend, docs, demo script.
 5. **Soko AI (optional)**: read-only sales summaries over stored records.

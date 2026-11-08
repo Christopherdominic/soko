@@ -132,7 +132,15 @@ function PaidView({ payment }: { payment: Payment }) {
         <Row label="Amount" value={formatSats(payment.amount_sats)} />
         {payment.settled_at && <Row label="Paid at" value={formatDateTime(payment.settled_at)} />}
       </dl>
-      <PrimaryLink href="/receive">Receive another payment</PrimaryLink>
+      <div className="grid gap-3">
+        <PrimaryLink href="/receive">Receive another payment</PrimaryLink>
+        <Link
+          href={`/payments/${payment.payment_hash}/receipt`}
+          className="flex h-12 items-center justify-center rounded-2xl border-2 border-forest font-semibold text-forest"
+        >
+          View &amp; share receipt
+        </Link>
+      </div>
     </div>
   );
 }

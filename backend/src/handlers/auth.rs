@@ -36,12 +36,15 @@ pub struct MerchantResponse {
     id: Uuid,
     business_name: String,
     email: String,
+    /// Public key that signs this merchant's receipts (NIP-19 npub).
+    nostr_npub: Option<String>,
 }
 
 impl From<Merchant> for MerchantResponse {
     fn from(m: Merchant) -> Self {
         Self {
             id: m.id,
+            nostr_npub: m.nostr_pubkey.as_deref().and_then(crate::nostr::npub),
             business_name: m.business_name,
             email: m.email,
         }
@@ -81,6 +84,13 @@ pub async fn register(
         .ok_or(ApiError::Conflict(
             "An account with this email already exists".into(),
         ))?;
+
+    let mut merchant = merchant;
+    if let Some(signer) = &state.nostr {
+        let pubkey = signer.pubkey_hex(merchant.id);
+        merchants::set_nostr_pubkey(&state.db, merchant.id, &pubkey).await?;
+        merchant.nostr_pubkey = Some(pubkey);
+    }
 
     start_session(&state, merchant, StatusCode::CREATED).await
 }

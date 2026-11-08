@@ -4,7 +4,7 @@
 
 Soko helps small businesses and market traders accept Bitcoin over the Lightning Network, verify each payment directly with their own Lightning node, issue digital receipts, and keep simple business records.
 
-> Status: Milestones 1–2 complete. A merchant can log in, create a Lightning invoice, show it as a QR code, and see it marked paid once their own LND node confirms settlement, with a receipt issued. See [docs/architecture.md](docs/architecture.md).
+> Status: Milestones 1–3 complete. Merchants log in, create Lightning invoices shown as QR codes, and see them marked paid only when their own LND node confirms settlement. Each payment gets a Nostr-signed digital receipt that customers can open and verify. The dashboard and searchable history cover day-to-day records. See [docs/architecture.md](docs/architecture.md).
 
 ## Stack
 
@@ -81,9 +81,12 @@ Soko is non-custodial: it connects to the merchant's own LND node using a macaro
 | POST | `/api/auth/logout` | ✓ | End session |
 | GET | `/api/auth/me` | ✓ | Current merchant |
 | POST | `/api/payments/invoices` | ✓ | Create invoice `{amount_sats, description?}` |
-| GET | `/api/payments` | ✓ | List payments `?status=&limit=&offset=` |
+| GET | `/api/payments` | ✓ | History `?status=&q=&from=&to=&tz=&limit=&offset=` |
 | GET | `/api/payments/{payment_hash}` | ✓ | Payment status (re-verified with LND if pending) |
-| GET | `/api/payments/{payment_hash}/receipt` | ✓ | Receipt for a paid payment |
+| GET | `/api/payments/{payment_hash}/receipt` | ✓ | Receipt with signed Nostr event and share link |
+| GET | `/api/dashboard/summary` | ✓ | Today / total sales, counts, last 7 days `?tz=` |
+| GET | `/api/public/receipts/{receipt_number}` | – | Customer receipt (paper-receipt fields only) |
+| POST | `/api/public/receipts/verify` | – | Verify a signed receipt event |
 
 ## License
 

@@ -37,3 +37,65 @@ export interface Receipt {
   paid_at: string | null;
   issued_at: string;
 }
+
+export interface MerchantWithKey extends Merchant {
+  nostr_npub: string | null;
+}
+
+export interface PaymentList {
+  payments: Payment[];
+  has_more: boolean;
+}
+
+export interface DashboardSummary {
+  time_zone: string;
+  total_sales_sats: number;
+  paid_count: number;
+  pending_count: number;
+  today_sales_sats: number;
+  today_count: number;
+  last_7_days: { day: string; sales_sats: number; count: number }[];
+}
+
+export interface NostrEvent {
+  id: string;
+  pubkey: string;
+  created_at: number;
+  kind: number;
+  tags: string[][];
+  content: string;
+  sig: string;
+}
+
+export interface SignedReceipt {
+  event: NostrEvent;
+  npub: string | null;
+  verification_code: string;
+}
+
+export interface MerchantReceipt extends Receipt {
+  public_path: string;
+  nostr: SignedReceipt | null;
+}
+
+export interface PublicReceipt {
+  receipt_number: string;
+  business_name: string;
+  amount_sats: number;
+  denomination: "sats";
+  paid_at: string | null;
+  issued_at: string;
+  nostr: SignedReceipt | null;
+}
+
+export interface VerifyResult {
+  signature_valid: boolean;
+  issued_by_known_merchant: boolean;
+  matches_records: boolean;
+  business_name: string | null;
+  receipt_number: string | null;
+  amount_sats: number | null;
+  paid_at: number | null;
+  npub: string | null;
+  problem: string | null;
+}

@@ -2,7 +2,12 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use soko_backend::{
-    MIGRATOR, config::Config, lightning::lnd::LndRestClient, routes, services::watcher,
+    MIGRATOR,
+    config::Config,
+    lightning::lnd::LndRestClient,
+    nostr::NostrSigner,
+    routes,
+    services::{receipts, watcher},
     state::AppState,
 };
 use sqlx::postgres::PgPoolOptions;
@@ -33,11 +38,23 @@ async fn main() -> anyhow::Result<()> {
     MIGRATOR.run(&db).await.context("running migrations")?;
 
     let lightning = Arc::new(LndRestClient::new(&config.lnd)?);
+    let nostr = match &config.nostr_secret {
+        Some(secret) => {
+            let signer = Arc::new(NostrSigner::from_hex(&secret.0)?);
+            receipts::backfill_merchant_pubkeys(&db, &signer).await?;
+            Some(signer)
+        }
+        None => {
+            tracing::warn!("SOKO_NOSTR_SECRET not set: receipts will not be Nostr-signed");
+            None
+        }
+    };
     let bind_addr = config.bind_addr;
     let state = AppState {
         db,
         lightning,
         config: Arc::new(config),
+        nostr,
     };
 
     watcher::spawn(state.clone());

@@ -5,7 +5,7 @@ use crate::models::Merchant;
 
 macro_rules! merchant_columns {
     () => {
-        "id, business_name, email, password_hash, created_at"
+        "id, business_name, email, password_hash, nostr_pubkey, created_at"
     };
 }
 
@@ -41,4 +41,30 @@ pub async fn find_by_email(db: &PgPool, email: &str) -> sqlx::Result<Option<Merc
     .bind(email)
     .fetch_optional(db)
     .await
+}
+
+pub async fn find_by_nostr_pubkey(db: &PgPool, pubkey: &str) -> sqlx::Result<Option<Merchant>> {
+    sqlx::query_as::<_, Merchant>(concat!(
+        "SELECT ",
+        merchant_columns!(),
+        " FROM merchants WHERE nostr_pubkey = $1"
+    ))
+    .bind(pubkey)
+    .fetch_optional(db)
+    .await
+}
+
+pub async fn ids_missing_nostr_pubkey(db: &PgPool) -> sqlx::Result<Vec<Uuid>> {
+    sqlx::query_scalar("SELECT id FROM merchants WHERE nostr_pubkey IS NULL")
+        .fetch_all(db)
+        .await
+}
+
+pub async fn set_nostr_pubkey(db: &PgPool, id: Uuid, pubkey: &str) -> sqlx::Result<()> {
+    sqlx::query("UPDATE merchants SET nostr_pubkey = $2 WHERE id = $1 AND nostr_pubkey IS NULL")
+        .bind(id)
+        .bind(pubkey)
+        .execute(db)
+        .await?;
+    Ok(())
 }
