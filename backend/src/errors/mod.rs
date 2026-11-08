@@ -14,6 +14,12 @@ pub enum ApiError {
     NotFound,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("invalid credentials")]
+    InvalidCredentials,
+    #[error("forbidden")]
+    Forbidden,
+    #[error("{0}")]
+    Conflict(String),
     #[error("lightning node unavailable")]
     LightningUnavailable(#[source] anyhow::Error),
     #[error("internal error")]
@@ -36,6 +42,13 @@ impl IntoResponse for ApiError {
                 "unauthorized",
                 "Authentication required".into(),
             ),
+            ApiError::InvalidCredentials => (
+                StatusCode::UNAUTHORIZED,
+                "invalid_credentials",
+                "Invalid email or password".into(),
+            ),
+            ApiError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "Not allowed".into()),
+            ApiError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),
             ApiError::LightningUnavailable(e) => {
                 tracing::error!(error = %e, "lightning backend error");
                 (
@@ -53,7 +66,11 @@ impl IntoResponse for ApiError {
                 )
             }
         };
-        (status, Json(json!({ "error": { "code": code, "message": message } }))).into_response()
+        (
+            status,
+            Json(json!({ "error": { "code": code, "message": message } })),
+        )
+            .into_response()
     }
 }
 

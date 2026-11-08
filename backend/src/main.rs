@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use soko_backend::{
-    MIGRATOR, config::Config, lightning::lnd::LndRestClient, routes, state::AppState,
+    MIGRATOR, config::Config, lightning::lnd::LndRestClient, routes, services::watcher,
+    state::AppState,
 };
 use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
@@ -10,7 +11,9 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Load .env from the backend dir or the repo root, whichever exists.
-    dotenvy::dotenv().or_else(|_| dotenvy::from_filename("../.env")).ok();
+    dotenvy::dotenv()
+        .or_else(|_| dotenvy::from_filename("../.env"))
+        .ok();
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -36,6 +39,8 @@ async fn main() -> anyhow::Result<()> {
         lightning,
         config: Arc::new(config),
     };
+
+    watcher::spawn(state.clone());
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "listening");

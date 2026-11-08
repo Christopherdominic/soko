@@ -33,6 +33,10 @@ pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<HealthRe
         database: if db_ok { "ok" } else { "unavailable" },
         lightning,
     };
-    let code = if healthy { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let code = if healthy {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
     (code, Json(body))
 }

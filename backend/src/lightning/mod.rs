@@ -52,7 +52,9 @@ pub trait LightningBackend: Send + Sync + 'static {
     async fn lookup_invoice(&self, payment_hash: &str) -> anyhow::Result<Option<NodeInvoice>>;
 
     /// Stream of invoice updates (new and settled) from the node.
-    async fn subscribe_invoices(&self) -> anyhow::Result<BoxStream<'static, anyhow::Result<NodeInvoice>>>;
+    async fn subscribe_invoices(
+        &self,
+    ) -> anyhow::Result<BoxStream<'static, anyhow::Result<NodeInvoice>>>;
 
     /// Checks connectivity and that our macaroon is accepted.
     async fn health(&self) -> anyhow::Result<NodeHealth>;

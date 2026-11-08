@@ -69,22 +69,23 @@ soko/
       lightning/      LightningBackend trait + LND REST client
       handlers/       HTTP handlers
       routes/         router
-      services/       payment verification, receipts (M2/M3)
-      repositories/   SQL access (M2)
-      models/         domain types (M2)
+      services/       auth helpers, payment verification, background watcher
+      repositories/   SQL access (merchants, sessions, payments, receipts)
+      models/         domain types
       nostr/          receipt signing (M3)
-      middleware/     auth (M3)
+      middleware/     CurrentMerchant session extractor
     migrations/
     tests/
   frontend/           Next.js app (UI only)
   docs/
+  scripts/            Polar regtest helpers (channel setup, customer payments)
   docker-compose.yml  PostgreSQL for development
 ```
 
 ## Milestones
 
 1. **Foundation**: monorepo, Axum, Postgres plus migrations, LND client with TLS pinning, `/api/health`, Next.js shell with `/api` proxy. ✅
-2. **Lightning payments**: create invoice, QR code, watcher (stream plus reconciliation), idempotent verification, payment status page, tests against a fake node, full lifecycle test on Polar.
-3. **Merchant experience**: auth (Argon2 plus `HttpOnly` session cookie), per-merchant authorisation, dashboard, history with search and filters, receipts, Nostr-signed receipts.
+2. **Lightning payments**: merchant login (Argon2 plus `HttpOnly` session cookie, moved up from M3), create invoice, QR code, watcher (stream plus reconciliation), idempotent verification, receipts issued on settlement, payment status page, tests against a fake node, full lifecycle verified on Polar. ✅
+3. **Merchant experience**: dashboard summary, history with search and date filters, receipt page, Nostr-signed receipts.
 4. **Submission readiness**: security review, Dockerised backend and frontend, docs, demo script.
 5. **Soko AI (optional)**: read-only sales summaries over stored records.

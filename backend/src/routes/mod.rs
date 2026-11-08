@@ -1,7 +1,7 @@
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
-    routing::get,
+    routing::{get, post},
 };
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
@@ -17,7 +17,20 @@ pub fn router(state: AppState) -> Router {
         Err(_) => CorsLayer::new(),
     };
 
-    let api = Router::new().route("/health", get(handlers::health::health));
+    use handlers::{auth, health, payments};
+    let api = Router::new()
+        .route("/health", get(health::health))
+        .route("/auth/register", post(auth::register))
+        .route("/auth/login", post(auth::login))
+        .route("/auth/logout", post(auth::logout))
+        .route("/auth/me", get(auth::me))
+        .route("/payments/invoices", post(payments::create_invoice))
+        .route("/payments", get(payments::list_payments))
+        .route("/payments/{payment_hash}", get(payments::get_payment))
+        .route(
+            "/payments/{payment_hash}/receipt",
+            get(payments::get_receipt),
+        );
 
     Router::new()
         .nest("/api", api)

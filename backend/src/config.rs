@@ -10,6 +10,11 @@ pub struct Config {
     pub database_url: String,
     pub frontend_origin: String,
     pub invoice_expiry_secs: u32,
+    /// Allow new merchant sign-ups. Disable once the merchant account exists.
+    pub allow_registration: bool,
+    /// Mark the session cookie `Secure` (required when served over HTTPS).
+    pub cookie_secure: bool,
+    pub session_ttl_hours: i64,
     pub lnd: LndConfig,
 }
 
@@ -46,6 +51,15 @@ impl Config {
             bail!("SOKO_INVOICE_EXPIRY_SECS must be between 60 and 86400");
         }
 
+        let allow_registration = env_bool("SOKO_ALLOW_REGISTRATION", true)?;
+        let cookie_secure = env_bool("SOKO_COOKIE_SECURE", false)?;
+        let session_ttl_hours: i64 = env_or("SOKO_SESSION_TTL_HOURS", "168")
+            .parse()
+            .context("SOKO_SESSION_TTL_HOURS must be an integer")?;
+        if !(1..=720).contains(&session_ttl_hours) {
+            bail!("SOKO_SESSION_TTL_HOURS must be between 1 and 720");
+        }
+
         let rest_url: Url = required("LND_REST_URL")?
             .parse()
             .context("LND_REST_URL must be a URL")?;
@@ -64,6 +78,9 @@ impl Config {
             database_url,
             frontend_origin,
             invoice_expiry_secs,
+            allow_registration,
+            cookie_secure,
+            session_ttl_hours,
             lnd: LndConfig {
                 rest_url,
                 tls_cert_pem,
@@ -85,4 +102,13 @@ fn env_or(key: &str, default: &str) -> String {
         .ok()
         .filter(|v| !v.trim().is_empty())
         .unwrap_or_else(|| default.to_string())
+}
+
+fn env_bool(key: &str, default: bool) -> Result<bool> {
+    match std::env::var(key).ok().as_deref().map(str::trim) {
+        None | Some("") => Ok(default),
+        Some("true" | "1" | "yes") => Ok(true),
+        Some("false" | "0" | "no") => Ok(false),
+        Some(_) => bail!("{key} must be true or false"),
+    }
 }

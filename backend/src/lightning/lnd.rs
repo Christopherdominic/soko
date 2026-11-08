@@ -81,9 +81,16 @@ impl LightningBackend for LndRestClient {
             "memo": memo.unwrap_or(""),
             "expiry": expiry_secs.to_string(),
         });
-        let resp = self.http.post(self.url("/v1/invoices")?).json(&body).send().await?;
+        let resp = self
+            .http
+            .post(self.url("/v1/invoices")?)
+            .json(&body)
+            .send()
+            .await?;
         let resp: AddInvoiceResp = check(resp).await?.json().await?;
-        let hash = B64.decode(&resp.r_hash).context("LND returned invalid r_hash")?;
+        let hash = B64
+            .decode(&resp.r_hash)
+            .context("LND returned invalid r_hash")?;
         if hash.len() != 32 {
             bail!("LND returned r_hash of unexpected length");
         }
@@ -322,7 +329,9 @@ impl ServerCertVerifier for PinnedCertVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.provider.signature_verification_algorithms.supported_schemes()
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 
@@ -358,7 +367,10 @@ mod tests {
 
     #[test]
     fn rejects_unknown_state_and_stream_errors() {
-        let bad = format!(r#"{{"result":{{"r_hash":"{}","state":"WEIRD"}}}}"#, B64.encode([1u8; 32]));
+        let bad = format!(
+            r#"{{"result":{{"r_hash":"{}","state":"WEIRD"}}}}"#,
+            B64.encode([1u8; 32])
+        );
         assert!(parse_stream_line(bad.as_bytes()).is_err());
         assert!(parse_stream_line(br#"{"error":{"code":2}}"#).is_err());
     }
