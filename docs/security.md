@@ -1,6 +1,6 @@
 # Soko security model
 
-This is a working document. It is reviewed again in Milestone 4.
+Reviewed in Milestone 4 (security pass). Each mitigation listed as tested has an automated test in `backend/tests/`.
 
 ## Assets
 
@@ -37,12 +37,21 @@ This is a working document. It is reviewed again in Milestone 4.
 | Receipt-signing key theft from DB | Keys are derived from `SOKO_NOSTR_SECRET` (env only); the DB stores public keys only. |
 | Public receipts leaking private data | Public event and `/r/{number}` contain no payment hash, invoice, description, email or customer data (tested). The payment link is a salted commitment. Relay publishing is off. |
 | Receipt-number guessing | ~50 bits of randomness per number; the public view reveals only paper-receipt fields. |
+| Password guessing / credential stuffing | Login limited to 10 attempts per account per 15 min (whatever the IP) and 300/min overall; registration 20/hour; per-IP limits when behind a trusted proxy. Tested. |
+| Invoice spam (filling the node with invoices) | 30 invoices per minute per merchant. Tested. |
+| Abuse of public receipt/verify endpoints | Overall cap of 600/min; verify body limited to 16 KB. |
+| Spoofed client IPs | Next.js passes through a client-supplied `X-Forwarded-For`, so per-IP limits are off unless `SOKO_TRUST_PROXY=true` behind a proxy that overwrites it. The limits that matter are keyed by account, merchant or globally. |
+| Large or slow requests | 64 KB body limit, 30 s request timeout. |
+| Clickjacking / MIME sniffing / XSS impact | CSP (`default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`. API responses are `Cache-Control: no-store`. |
+| Container compromise | Backend runs as a non-root user and isn't published to the host; LND cert and macaroon are mounted read-only. |
 | SQL injection | All values are bound parameters; sqlx 0.9 rejects SQL strings built at runtime. |
 | Path injection into LND URLs | Payment hashes must match `^[0-9a-f]{64}$` before use. |
 
 ## Known gaps (to address before production)
 
-- No rate limiting on login, invoice creation or the public receipt/verify endpoints yet.
+- Rate limits are in memory, so they reset on restart and aren't shared across several backend instances.
+- A per-account login limit can be triggered on purpose to lock a merchant out for up to 15 minutes. This is an accepted trade-off against password guessing.
+- CSP allows `'unsafe-inline'` scripts (Next.js without nonces). Moving to nonce-based CSP would tighten this.
 - Rotating `SOKO_NOSTR_SECRET` changes every merchant's public key, so previously issued receipts stop matching a known merchant. Treat it as long-lived.
 - Registration is open by default (`SOKO_ALLOW_REGISTRATION=true`); disable it after setup.
 - No 2FA or password reset.

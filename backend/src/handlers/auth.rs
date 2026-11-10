@@ -11,7 +11,10 @@ use uuid::Uuid;
 use super::json::ApiJson;
 use crate::{
     errors::{ApiError, ApiResult},
-    middleware::auth::{CurrentMerchant, session_token},
+    middleware::{
+        auth::{CurrentMerchant, session_token},
+        rate_limit::{ClientIp, enforce},
+    },
     models::Merchant,
     repositories::{merchants, sessions},
     services::auth as auth_svc,
@@ -53,11 +56,14 @@ impl From<Merchant> for MerchantResponse {
 
 pub async fn register(
     State(state): State<AppState>,
+    ip: ClientIp,
     ApiJson(req): ApiJson<RegisterRequest>,
 ) -> ApiResult<impl IntoResponse> {
     if !state.config.allow_registration {
         return Err(ApiError::Forbidden);
     }
+    ip.enforce(&state.limits, "register")?;
+    enforce(&state.limits.register_global, "all")?;
     let business_name = req.business_name.trim().to_string();
     let email = req.email.trim().to_lowercase();
     if business_name.is_empty() || business_name.chars().count() > 120 {
@@ -97,8 +103,16 @@ pub async fn register(
 
 pub async fn login(
     State(state): State<AppState>,
+    ip: ClientIp,
     ApiJson(req): ApiJson<LoginRequest>,
 ) -> ApiResult<impl IntoResponse> {
+    // Per-account limit stops password guessing even if the attacker rotates IPs.
+    ip.enforce(&state.limits, "login")?;
+    enforce(&state.limits.login_global, "all")?;
+    enforce(
+        &state.limits.login_per_email,
+        &req.email.trim().to_lowercase(),
+    )?;
     let merchant = merchants::find_by_email(&state.db, req.email.trim()).await?;
     let password = req.password;
     let ok_merchant = tokio::task::spawn_blocking(move || match merchant {

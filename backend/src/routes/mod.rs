@@ -4,7 +4,12 @@ use axum::{
     http::{HeaderValue, Method, header},
     routing::{get, post},
 };
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use std::time::Duration;
+
+use axum::http::StatusCode;
+use tower_http::{
+    cors::CorsLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer, trace::TraceLayer,
+};
 
 use crate::{handlers, state::AppState};
 
@@ -44,6 +49,24 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .nest("/api", api)
+        // API responses are private, JSON-only and never framed or cached.
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-store"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
+        ))
+        .layer(DefaultBodyLimit::max(64 * 1024))
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(30),
+        ))
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(state)

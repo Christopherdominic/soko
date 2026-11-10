@@ -20,6 +20,9 @@ pub enum ApiError {
     Forbidden,
     #[error("{0}")]
     Conflict(String),
+    /// Seconds until the client may retry.
+    #[error("rate limited")]
+    RateLimited(u64),
     #[error("lightning node unavailable")]
     LightningUnavailable(#[source] anyhow::Error),
     #[error("internal error")]
@@ -49,6 +52,18 @@ impl IntoResponse for ApiError {
             ),
             ApiError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", "Not allowed".into()),
             ApiError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),
+            ApiError::RateLimited(secs) => {
+                let body = json!({ "error": {
+                    "code": "rate_limited",
+                    "message": "Too many attempts. Please wait a moment and try again."
+                }});
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [(axum::http::header::RETRY_AFTER, secs.to_string())],
+                    Json(body),
+                )
+                    .into_response();
+            }
             ApiError::LightningUnavailable(e) => {
                 tracing::error!(error = %e, "lightning backend error");
                 (

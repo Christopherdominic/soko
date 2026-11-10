@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use sqlx::PgPool;
 
-use crate::{config::Config, lightning::LightningBackend, nostr::NostrSigner};
+use crate::{
+    config::Config, lightning::LightningBackend, middleware::rate_limit::Limits, nostr::NostrSigner,
+};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -11,4 +13,5 @@ pub struct AppState {
     pub config: Arc<Config>,
     /// None when SOKO_NOSTR_SECRET is not set; receipts are then unsigned.
     pub nostr: Option<Arc<NostrSigner>>,
+    pub limits: Arc<Limits>,
 }

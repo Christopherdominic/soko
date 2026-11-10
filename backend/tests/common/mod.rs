@@ -118,6 +118,10 @@ pub struct Resp {
 
 impl TestApp {
     pub fn new(db: PgPool) -> Self {
+        Self::with_limits(db, Default::default())
+    }
+
+    pub fn with_limits(db: PgPool, limits: soko_backend::middleware::rate_limit::Limits) -> Self {
         let ln = Arc::new(FakeLightning::default());
         let config = Config {
             bind_addr: "127.0.0.1:0".parse().unwrap(),
@@ -127,6 +131,7 @@ impl TestApp {
             allow_registration: true,
             cookie_secure: false,
             session_ttl_hours: 24,
+            trust_proxy: true,
             nostr_secret: None,
             lnd: LndConfig {
                 rest_url: "https://localhost:1".parse().unwrap(),
@@ -139,6 +144,7 @@ impl TestApp {
             lightning: ln.clone(),
             config: Arc::new(config),
             nostr: Some(Arc::new(NostrSigner::new([42u8; 32]))),
+            limits: Arc::new(limits),
         };
         Self {
             router: routes::router(state),

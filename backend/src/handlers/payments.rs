@@ -10,7 +10,7 @@ use super::{json::ApiJson, tz};
 use crate::{
     errors::{ApiError, ApiResult},
     lightning::lnd::is_hex_hash,
-    middleware::auth::CurrentMerchant,
+    middleware::{auth::CurrentMerchant, rate_limit::enforce},
     models::{Payment, PaymentStatus, Receipt},
     repositories::payments::{self as repo, ListFilter},
     services::{
@@ -63,6 +63,7 @@ pub async fn create_invoice(
     CurrentMerchant(merchant): CurrentMerchant,
     ApiJson(req): ApiJson<CreateInvoiceRequest>,
 ) -> ApiResult<(StatusCode, Json<PaymentResponse>)> {
+    enforce(&state.limits.invoice_per_merchant, &merchant.id.to_string())?;
     let payment = svc::create_invoice(
         &state.db,
         state.lightning.as_ref(),

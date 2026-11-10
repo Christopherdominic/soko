@@ -10,6 +10,7 @@ use serde::Serialize;
 use super::json::ApiJson;
 use crate::{
     errors::{ApiError, ApiResult},
+    middleware::rate_limit::{ClientIp, enforce},
     nostr::Event,
     repositories::receipts as repo,
     services::receipts::{self as svc, ReceiptSource, SignedReceipt, VerifyResult},
@@ -31,8 +32,11 @@ pub struct PublicReceipt {
 /// Shows only what belongs on a paper receipt: no description, invoice or payment hash.
 pub async fn get_receipt(
     State(state): State<AppState>,
+    ip: ClientIp,
     Path(number): Path<String>,
 ) -> ApiResult<Json<PublicReceipt>> {
+    ip.enforce(&state.limits, "public")?;
+    enforce(&state.limits.public_global, "all")?;
     if !is_receipt_number(&number) {
         return Err(ApiError::NotFound);
     }
@@ -69,8 +73,11 @@ pub async fn get_receipt(
 /// POST /api/public/receipts/verify — body is a Nostr event.
 pub async fn verify_receipt(
     State(state): State<AppState>,
+    ip: ClientIp,
     ApiJson(event): ApiJson<Event>,
 ) -> ApiResult<Json<VerifyResult>> {
+    ip.enforce(&state.limits, "public")?;
+    enforce(&state.limits.public_global, "all")?;
     Ok(Json(
         svc::verify(&state.db, &event)
             .await

@@ -55,16 +55,20 @@ async fn main() -> anyhow::Result<()> {
         lightning,
         config: Arc::new(config),
         nostr,
+        limits: Default::default(),
     };
 
     watcher::spawn(state.clone());
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "listening");
-    axum::serve(listener, routes::router(state))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await?;
+    axum::serve(
+        listener,
+        routes::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await?;
     Ok(())
 }

@@ -29,7 +29,9 @@
 | **Idempotent state transitions** | `UPDATE … WHERE status = 'pending'` plus a unique `payment_id` on receipts. Duplicate stream events, polls and retries cannot double-process a payment or issue two receipts. |
 | **Stream + poll** | The LND subscription gives instant updates. A periodic reconciliation of pending invoices covers missed events (restarts, dropped connections). |
 | **Same-origin `/api` proxy** | Next.js rewrites `/api/*` to the backend, so session cookies stay `HttpOnly; SameSite=Strict` without CORS complexity. |
-| **Runtime SQL (no compile-time `query!`)** | The backend builds without a live database (CI, Docker). |
+| **Runtime SQL (no compile-time `query!`)** | The backend builds without a live database (CI, Docker). sqlx 0.9 still forces SQL to be compile-time string literals. |
+| **Rate limits keyed by account, merchant or globally** | Next.js forwards client-supplied `X-Forwarded-For`, so IP keys can be spoofed. Per-IP limits apply only behind a trusted proxy. |
+| **Backend not published in Docker** | Only the frontend container can reach it, which shrinks the attack surface and keeps the same-origin cookie model. |
 
 ## Custody model
 
@@ -91,5 +93,5 @@ soko/
 1. **Foundation**: monorepo, Axum, Postgres plus migrations, LND client with TLS pinning, `/api/health`, Next.js shell with `/api` proxy. ✅
 2. **Lightning payments**: merchant login (Argon2 plus `HttpOnly` session cookie, moved up from M3), create invoice, QR code, watcher (stream plus reconciliation), idempotent verification, receipts issued on settlement, payment status page, tests against a fake node, full lifecycle verified on Polar. ✅
 3. **Merchant experience**: dashboard summary (time-zone aware, demo rows excluded), history with search, status and date filters and paging, merchant and public receipt pages, Nostr-signed receipts with a verify page. ✅
-4. **Submission readiness**: security review, Dockerised backend and frontend, docs, demo script.
+4. **Submission readiness**: rate limiting, security headers, body limits and timeouts; Dockerised full stack; CI; setup and demo guides; demo reset script. ✅
 5. **Soko AI (optional)**: read-only sales summaries over stored records.

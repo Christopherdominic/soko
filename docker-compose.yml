@@ -1,3 +1,5 @@
+# Full stack: docker compose up -d --build   (needs a running Polar LND node)
+# Database only, for local development: docker compose up -d postgres
 services:
   postgres:
     image: postgres:16-alpine
@@ -16,6 +18,48 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  backend:
+    build: ./backend
+    container_name: soko-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-soko}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-soko}
+      SOKO_FRONTEND_ORIGIN: http://localhost:3000
+      SOKO_INVOICE_EXPIRY_SECS: ${SOKO_INVOICE_EXPIRY_SECS:-900}
+      SOKO_ALLOW_REGISTRATION: ${SOKO_ALLOW_REGISTRATION:-true}
+      SOKO_COOKIE_SECURE: ${SOKO_COOKIE_SECURE:-false}
+      SOKO_SESSION_TTL_HOURS: ${SOKO_SESSION_TTL_HOURS:-168}
+      SOKO_TRUST_PROXY: "false"
+      SOKO_NOSTR_SECRET: ${SOKO_NOSTR_SECRET:-}
+      # Polar publishes LND's REST port on the host; reach it via the Docker host gateway.
+      # The certificate is pinned, so the hostname does not need to match.
+      LND_REST_URL: ${LND_REST_URL_DOCKER:-https://host.docker.internal:8082}
+      LND_TLS_CERT_PATH: /run/lnd/tls.cert
+      LND_MACAROON_PATH: /run/lnd/invoice.macaroon
+      RUST_LOG: ${RUST_LOG:-soko_backend=info,tower_http=info}
+    volumes:
+      - ${LND_TLS_CERT_PATH:?set LND_TLS_CERT_PATH in .env}:/run/lnd/tls.cert:ro
+      - ${LND_MACAROON_PATH:?set LND_MACAROON_PATH in .env}:/run/lnd/invoice.macaroon:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Not published: only the frontend container talks to the backend.
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        SOKO_BACKEND_URL: http://backend:4000
+    container_name: soko-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      # Set SOKO_PUBLISH_ADDR=0.0.0.0 to open the app from a phone on your network.
+      - "${SOKO_PUBLISH_ADDR:-127.0.0.1}:3000:3000"
 
 volumes:
   soko-pgdata:

@@ -15,6 +15,9 @@ pub struct Config {
     /// Mark the session cookie `Secure` (required when served over HTTPS).
     pub cookie_secure: bool,
     pub session_ttl_hours: i64,
+    /// Trust X-Forwarded-For for per-IP rate limits. Only enable when a reverse
+    /// proxy you control overwrites that header.
+    pub trust_proxy: bool,
     /// Hex master secret for deriving merchant Nostr keys. None disables signing.
     pub nostr_secret: Option<Redacted>,
     pub lnd: LndConfig,
@@ -65,6 +68,7 @@ impl Config {
 
         let allow_registration = env_bool("SOKO_ALLOW_REGISTRATION", true)?;
         let cookie_secure = env_bool("SOKO_COOKIE_SECURE", false)?;
+        let trust_proxy = env_bool("SOKO_TRUST_PROXY", false)?;
         let session_ttl_hours: i64 = env_or("SOKO_SESSION_TTL_HOURS", "168")
             .parse()
             .context("SOKO_SESSION_TTL_HOURS must be an integer")?;
@@ -98,6 +102,7 @@ impl Config {
             allow_registration,
             cookie_secure,
             session_ttl_hours,
+            trust_proxy,
             nostr_secret,
             lnd: LndConfig {
                 rest_url,
