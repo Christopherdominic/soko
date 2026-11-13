@@ -4,7 +4,18 @@ This hosts Soko publicly. **Render** runs the website and the backend, **Neon** 
 
 Time needed: about 30–45 minutes, most of it waiting for builds and channel confirmations.
 
-## Part 1: Lightning node on Voltage
+## Part 1 (option A, used for the Soko demo): tunnel to your local Polar node
+
+Voltage is invitation-only now, so the hosted demo uses the Polar regtest node on the presenter's laptop through an **ngrok** tunnel.
+
+1. Create a free ngrok account, install ngrok, run `ngrok config add-authtoken <token>`, and note your free **static domain** (Dashboard → Domains), e.g. `my-name.ngrok-free.dev`.
+2. Start Polar, then `scripts/polar-setup.sh`.
+3. Start the tunnel and keep it running: `NGROK_DOMAIN=my-name.ngrok-free.dev scripts/tunnel.sh`
+4. On `soko-backend` set `LND_REST_URL=https://my-name.ngrok-free.dev` and `LND_MACAROON_HEX` to the hex of Polar's `invoice.macaroon` (`xxd -p -c 10000 <path>/invoice.macaroon`). Leave `LND_TLS_CERT_PATH` unset: ngrok presents a publicly trusted certificate.
+
+Hosted payments only work while the laptop, Polar and the tunnel are running. ngrok's servers see the macaroon in transit; it's invoice-only (cannot spend) and regtest play money.
+
+## Part 1 (option B): Lightning node on Voltage
 
 1. Sign up at [voltage.cloud](https://voltage.cloud) and create a **Lightning node** (LND) on the **Mutinynet** network. Mutinynet nodes are available on the free plan.
 2. Wait until the node shows as **running and synced**.

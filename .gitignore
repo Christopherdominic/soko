@@ -20,3 +20,6 @@ frontend/next-env.d.ts
 .DS_Store
 .vscode/
 .idea/
+
+# Local Cloudflare tunnel state
+.tunnel/
