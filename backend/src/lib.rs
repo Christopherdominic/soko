@@ -1,5 +1,6 @@
 pub mod config;
 pub mod errors;
+pub mod fx;
 pub mod handlers;
 pub mod lightning;
 pub mod middleware;

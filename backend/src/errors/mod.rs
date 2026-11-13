@@ -23,6 +23,8 @@ pub enum ApiError {
     /// Seconds until the client may retry.
     #[error("rate limited")]
     RateLimited(u64),
+    #[error("exchange rate unavailable")]
+    RateUnavailable,
     #[error("lightning node unavailable")]
     LightningUnavailable(#[source] anyhow::Error),
     #[error("internal error")]
@@ -64,6 +66,12 @@ impl IntoResponse for ApiError {
                 )
                     .into_response();
             }
+            ApiError::RateUnavailable => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "rate_unavailable",
+                "The exchange rate is temporarily unavailable. Enter the amount in sats instead."
+                    .into(),
+            ),
             ApiError::LightningUnavailable(e) => {
                 tracing::error!(error = %e, "lightning backend error");
                 (

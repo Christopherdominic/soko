@@ -17,13 +17,13 @@ pub fn router(state: AppState) -> Router {
     let cors = match state.config.frontend_origin.parse::<HeaderValue>() {
         Ok(origin) => CorsLayer::new()
             .allow_origin(origin)
-            .allow_methods([Method::GET, Method::POST])
+            .allow_methods([Method::GET, Method::POST, Method::PUT])
             .allow_headers([header::CONTENT_TYPE])
             .allow_credentials(true),
         Err(_) => CorsLayer::new(),
     };
 
-    use handlers::{auth, dashboard, health, payments, public};
+    use handlers::{auth, dashboard, health, money, payments, public};
     let api = Router::new()
         .route("/health", get(health::health))
         .route("/auth/register", post(auth::register))
@@ -38,6 +38,15 @@ pub fn router(state: AppState) -> Router {
             get(payments::get_receipt),
         )
         .route("/dashboard/summary", get(dashboard::summary))
+        .route(
+            "/settings",
+            get(money::get_settings).put(money::update_settings),
+        )
+        .route("/rates", get(money::get_rate))
+        .route(
+            "/payouts",
+            get(money::list_payouts).post(money::create_payout),
+        )
         .route(
             "/public/receipts/{receipt_number}",
             get(public::get_receipt),

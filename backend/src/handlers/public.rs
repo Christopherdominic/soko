@@ -13,7 +13,10 @@ use crate::{
     middleware::rate_limit::{ClientIp, enforce},
     nostr::Event,
     repositories::receipts as repo,
-    services::receipts::{self as svc, ReceiptSource, SignedReceipt, VerifyResult},
+    services::{
+        money::FiatValue,
+        receipts::{self as svc, ReceiptSource, SignedReceipt, VerifyResult},
+    },
     state::AppState,
 };
 
@@ -25,6 +28,8 @@ pub struct PublicReceipt {
     denomination: &'static str,
     paid_at: Option<DateTime<Utc>>,
     issued_at: DateTime<Utc>,
+    /// Local-currency value at the time of payment.
+    fiat: Option<FiatValue>,
     nostr: Option<SignedReceipt>,
 }
 
@@ -66,6 +71,11 @@ pub async fn get_receipt(
         denomination: "sats",
         paid_at: r.paid_at,
         issued_at: r.issued_at,
+        fiat: FiatValue::from_parts(
+            r.fiat_currency.as_deref(),
+            r.fiat_amount_minor,
+            r.btc_price_fiat,
+        ),
         nostr,
     }))
 }

@@ -47,6 +47,7 @@ export function MerchantReceiptView() {
           receiptNumber={receipt.receipt_number}
           amountSats={receipt.amount_sats}
           paidAt={receipt.paid_at}
+          fiat={receipt.fiat}
           description={receipt.description}
         />
         <div className="space-y-4">

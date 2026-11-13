@@ -14,6 +14,7 @@ use crate::{
     models::{Payment, PaymentStatus, Receipt},
     repositories::payments::{self as repo, ListFilter},
     services::{
+        money::{self, FiatValue},
         payments as svc,
         receipts::{self, ReceiptSource, SignedReceipt},
     },
@@ -22,7 +23,9 @@ use crate::{
 
 #[derive(Deserialize)]
 pub struct CreateInvoiceRequest {
-    amount_sats: i64,
+    /// Exactly one of `amount_sats` or `fiat_amount` (merchant's currency).
+    amount_sats: Option<i64>,
+    fiat_amount: Option<String>,
     description: Option<String>,
 }
 
@@ -38,6 +41,8 @@ pub struct PaymentResponse {
     settled_at: Option<DateTime<Utc>>,
     created_at: DateTime<Utc>,
     receipt_number: Option<String>,
+    /// Local-currency value when the invoice was created.
+    fiat: Option<FiatValue>,
 }
 
 impl PaymentResponse {
@@ -53,6 +58,11 @@ impl PaymentResponse {
             settled_at: p.settled_at,
             created_at: p.created_at,
             receipt_number: receipt.map(|r| r.receipt_number.clone()),
+            fiat: FiatValue::from_parts(
+                p.fiat_currency.as_deref(),
+                p.fiat_amount_minor,
+                p.btc_price_fiat,
+            ),
         }
     }
 }
@@ -64,13 +74,21 @@ pub async fn create_invoice(
     ApiJson(req): ApiJson<CreateInvoiceRequest>,
 ) -> ApiResult<(StatusCode, Json<PaymentResponse>)> {
     enforce(&state.limits.invoice_per_merchant, &merchant.id.to_string())?;
+    let (amount_sats, fiat) = money::price_invoice(
+        &state.fx,
+        &merchant.currency,
+        req.amount_sats,
+        req.fiat_amount.as_deref(),
+    )
+    .await?;
     let payment = svc::create_invoice(
         &state.db,
         state.lightning.as_ref(),
         merchant.id,
-        req.amount_sats,
+        amount_sats,
         req.description.as_deref(),
         state.config.invoice_expiry_secs,
+        fiat,
     )
     .await?;
     Ok((
@@ -188,6 +206,7 @@ pub struct ReceiptResponse {
     payment_hash: String,
     paid_at: Option<DateTime<Utc>>,
     issued_at: DateTime<Utc>,
+    fiat: Option<FiatValue>,
     /// Shareable customer link (no login needed).
     public_path: String,
     nostr: Option<SignedReceipt>,
@@ -221,6 +240,11 @@ pub async fn get_receipt(
     .map_err(ApiError::Internal)?;
     Ok(Json(ReceiptResponse {
         public_path: format!("/r/{}", receipt.receipt_number),
+        fiat: FiatValue::from_parts(
+            payment.fiat_currency.as_deref(),
+            payment.fiat_amount_minor,
+            payment.btc_price_fiat,
+        ),
         receipt_number: receipt.receipt_number,
         business_name: merchant.business_name,
         amount_sats: receipt.amount_sats,

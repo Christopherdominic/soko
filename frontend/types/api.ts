@@ -25,6 +25,14 @@ export interface Payment {
   settled_at: string | null;
   created_at: string;
   receipt_number: string | null;
+  fiat: FiatValue | null;
+}
+
+/** Local-currency value: decimal string in major units + the BTC price used. */
+export interface FiatValue {
+  currency: string;
+  amount: string;
+  btc_price: number;
 }
 
 export interface Receipt {
@@ -36,10 +44,44 @@ export interface Receipt {
   payment_hash: string;
   paid_at: string | null;
   issued_at: string;
+  fiat: FiatValue | null;
 }
 
 export interface MerchantWithKey extends Merchant {
   nostr_npub: string | null;
+  currency: string;
+}
+
+export interface CurrencyInfo {
+  code: string;
+  name: string;
+  decimals: number;
+  payout_providers: string[];
+}
+
+export interface Settings {
+  currency: string;
+  currencies: CurrencyInfo[];
+}
+
+export interface Rate {
+  currency: string;
+  btc_price: number;
+  sats_per_unit: number;
+  updated_at: string;
+  source: string;
+  fresh: boolean;
+}
+
+export interface Payout {
+  id: string;
+  amount_sats: number;
+  fiat: FiatValue;
+  provider: string;
+  destination: string;
+  status: "completed";
+  is_demo: boolean;
+  created_at: string;
 }
 
 export interface PaymentList {
@@ -55,6 +97,12 @@ export interface DashboardSummary {
   today_sales_sats: number;
   today_count: number;
   last_7_days: { day: string; sales_sats: number; count: number }[];
+  currency: string;
+  total_sales_fiat: FiatValue | null;
+  today_sales_fiat: FiatValue | null;
+  available_sats: number;
+  available_fiat: FiatValue | null;
+  paid_out_sats: number;
 }
 
 export interface NostrEvent {
@@ -85,6 +133,7 @@ export interface PublicReceipt {
   denomination: "sats";
   paid_at: string | null;
   issued_at: string;
+  fiat: FiatValue | null;
   nostr: SignedReceipt | null;
 }
 

@@ -145,6 +145,11 @@ impl TestApp {
             config: Arc::new(config),
             nostr: Some(Arc::new(NostrSigner::new([42u8; 32]))),
             limits: Arc::new(limits),
+            // 1 BTC = 70,000 USD; KES 130/USD -> 1 BTC = 9,100,000 KES.
+            fx: soko_backend::fx::RateService::fixed(
+                70_000.0,
+                &[("KES", 130.0), ("NGN", 1500.0), ("UGX", 3700.0)],
+            ),
         };
         Self {
             router: routes::router(state),

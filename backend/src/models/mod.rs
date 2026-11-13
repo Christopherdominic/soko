@@ -31,6 +31,8 @@ pub struct Merchant {
     pub email: String,
     pub password_hash: String,
     pub nostr_pubkey: Option<String>,
+    /// ISO 4217 code of the merchant's local currency.
+    pub currency: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -49,6 +51,10 @@ pub struct Payment {
     pub settled_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Local-currency value when the invoice was created (minor units + BTC price).
+    pub fiat_currency: Option<String>,
+    pub fiat_amount_minor: Option<i64>,
+    pub btc_price_fiat: Option<f64>,
 }
 
 #[derive(Clone, Debug, sqlx::FromRow)]
@@ -70,4 +76,20 @@ pub struct PaymentWithReceipt {
     #[sqlx(flatten)]
     pub payment: Payment,
     pub receipt_number: Option<String>,
+}
+
+/// A demo cash-out record. No money moves; `is_demo` is always true (DB-enforced).
+#[derive(Clone, Debug, sqlx::FromRow)]
+pub struct Payout {
+    pub id: Uuid,
+    pub merchant_id: Uuid,
+    pub amount_sats: i64,
+    pub currency: String,
+    pub fiat_amount_minor: i64,
+    pub btc_price_fiat: f64,
+    pub provider: String,
+    pub destination_masked: String,
+    pub status: String,
+    pub is_demo: bool,
+    pub created_at: DateTime<Utc>,
 }

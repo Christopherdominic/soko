@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatFiat } from "@/lib/money";
 import { StatusBadge } from "@/components/StatusBadge";
 import type { Payment } from "@/types/api";
 
@@ -30,6 +31,7 @@ export function PaymentList({ payments }: { payments: Payment[] }) {
                   {formatNumber(p.amount_sats)} <span className="font-normal text-muted">sats</span>
                   {p.is_demo && <span className="ml-2 rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-bold tracking-wide">DEMO</span>}
                 </span>
+                {p.fiat && <span className="tabular block text-xs text-muted">≈ {formatFiat(p.fiat)}</span>}
                 <span className="mt-0.5 block truncate text-muted md:hidden">
                   {p.description ?? "No description"} · {formatDateTime(p.created_at)}
                 </span>

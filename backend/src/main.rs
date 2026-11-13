@@ -4,6 +4,7 @@ use anyhow::Context;
 use soko_backend::{
     MIGRATOR,
     config::Config,
+    fx::RateService,
     lightning::{LightningBackend, NotConfigured, lnd::LndRestClient},
     nostr::NostrSigner,
     routes,
@@ -62,6 +63,11 @@ async fn main() -> anyhow::Result<()> {
         config: Arc::new(config),
         nostr,
         limits: Default::default(),
+        fx: {
+            let fx = RateService::new()?;
+            fx.spawn_refresh();
+            fx
+        },
     };
 
     if state.config.lnd.is_some() {

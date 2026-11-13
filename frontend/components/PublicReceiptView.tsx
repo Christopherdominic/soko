@@ -42,6 +42,7 @@ export function PublicReceiptView() {
               receiptNumber={receipt.receipt_number}
               amountSats={receipt.amount_sats}
               paidAt={receipt.paid_at}
+              fiat={receipt.fiat}
             />
             <NostrProof signed={receipt.nostr} />
           </>

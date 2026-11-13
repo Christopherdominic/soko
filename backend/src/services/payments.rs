@@ -13,6 +13,7 @@ use crate::{
     lightning::{InvoiceState, LightningBackend, NodeInvoice},
     models::{Payment, PaymentStatus},
     repositories::payments::{self as repo, NewPayment},
+    services::money::FiatSnapshot,
 };
 
 pub const MIN_AMOUNT_SATS: i64 = 1;
@@ -53,6 +54,7 @@ pub async fn create_invoice(
     amount_sats: i64,
     description: Option<&str>,
     expiry_secs: u32,
+    fiat: Option<FiatSnapshot>,
 ) -> ApiResult<Payment> {
     let (amount_sats, description) = validate_invoice_input(amount_sats, description)?;
     let created = lightning
@@ -68,6 +70,7 @@ pub async fn create_invoice(
             amount_sats,
             description: description.as_deref(),
             expires_at: Utc::now() + Duration::seconds(i64::from(expiry_secs)),
+            fiat: fiat.as_ref().map(|f| (f.currency, f.minor, f.btc_price)),
         },
     )
     .await?;

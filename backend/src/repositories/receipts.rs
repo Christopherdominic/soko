@@ -18,6 +18,9 @@ pub struct PublicReceiptRow {
     pub payment_hash: String,
     pub commitment_salt: Option<Vec<u8>>,
     pub nostr_event: Option<serde_json::Value>,
+    pub fiat_currency: Option<String>,
+    pub fiat_amount_minor: Option<i64>,
+    pub btc_price_fiat: Option<f64>,
 }
 
 pub async fn find_by_number(
@@ -27,7 +30,8 @@ pub async fn find_by_number(
     sqlx::query_as::<_, PublicReceiptRow>(
         "SELECT r.id AS receipt_id, r.merchant_id, r.receipt_number, r.amount_sats, r.issued_at,
                 p.settled_at AS paid_at, m.business_name, p.payment_hash,
-                r.commitment_salt, r.nostr_event
+                r.commitment_salt, r.nostr_event,
+                p.fiat_currency, p.fiat_amount_minor, p.btc_price_fiat
          FROM receipts r
          JOIN payments p ON p.id = r.payment_id
          JOIN merchants m ON m.id = r.merchant_id

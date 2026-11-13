@@ -5,7 +5,7 @@ use crate::models::Merchant;
 
 macro_rules! merchant_columns {
     () => {
-        "id, business_name, email, password_hash, nostr_pubkey, created_at"
+        "id, business_name, email, password_hash, nostr_pubkey, currency, created_at"
     };
 }
 
@@ -64,6 +64,15 @@ pub async fn set_nostr_pubkey(db: &PgPool, id: Uuid, pubkey: &str) -> sqlx::Resu
     sqlx::query("UPDATE merchants SET nostr_pubkey = $2 WHERE id = $1 AND nostr_pubkey IS NULL")
         .bind(id)
         .bind(pubkey)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+pub async fn set_currency(db: &PgPool, id: Uuid, currency: &str) -> sqlx::Result<()> {
+    sqlx::query("UPDATE merchants SET currency = $2 WHERE id = $1")
+        .bind(id)
+        .bind(currency)
         .execute(db)
         .await?;
     Ok(())

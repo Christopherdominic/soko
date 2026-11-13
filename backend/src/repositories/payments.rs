@@ -7,7 +7,8 @@ use crate::models::{Payment, PaymentStatus, PaymentWithReceipt, Receipt};
 macro_rules! payment_columns {
     () => {
         "id, merchant_id, payment_hash, payment_request, amount_sats, description, \
-     status, amount_paid_msat, is_demo, expires_at, settled_at, created_at, updated_at"
+     status, amount_paid_msat, is_demo, expires_at, settled_at, created_at, updated_at, \
+     fiat_currency, fiat_amount_minor, btc_price_fiat"
     };
 }
 
@@ -18,13 +19,16 @@ pub struct NewPayment<'a> {
     pub amount_sats: i64,
     pub description: Option<&'a str>,
     pub expires_at: DateTime<Utc>,
+    /// (currency, minor units, BTC price in that currency) at creation time.
+    pub fiat: Option<(&'a str, i64, f64)>,
 }
 
 pub async fn insert(db: &PgPool, p: NewPayment<'_>) -> sqlx::Result<Payment> {
     sqlx::query_as::<_, Payment>(concat!(
         "INSERT INTO payments
-           (id, merchant_id, payment_hash, payment_request, amount_sats, description, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+           (id, merchant_id, payment_hash, payment_request, amount_sats, description, expires_at,
+            fiat_currency, fiat_amount_minor, btc_price_fiat)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING ",
         payment_columns!(),
         ""
@@ -36,6 +40,9 @@ pub async fn insert(db: &PgPool, p: NewPayment<'_>) -> sqlx::Result<Payment> {
     .bind(p.amount_sats)
     .bind(p.description)
     .bind(p.expires_at)
+    .bind(p.fiat.map(|f| f.0))
+    .bind(p.fiat.map(|f| f.1))
+    .bind(p.fiat.map(|f| f.2))
     .fetch_one(db)
     .await
 }
@@ -92,7 +99,8 @@ pub async fn list_for_merchant(
     let mut q: QueryBuilder<Postgres> = QueryBuilder::new(
         "SELECT p.id, p.merchant_id, p.payment_hash, p.payment_request, p.amount_sats, \
          p.description, p.status, p.amount_paid_msat, p.is_demo, p.expires_at, p.settled_at, \
-         p.created_at, p.updated_at, r.receipt_number \
+         p.created_at, p.updated_at, p.fiat_currency, p.fiat_amount_minor, p.btc_price_fiat, \
+         r.receipt_number \
          FROM payments p LEFT JOIN receipts r ON r.payment_id = p.id WHERE p.merchant_id = ",
     );
     q.push_bind(merchant_id);

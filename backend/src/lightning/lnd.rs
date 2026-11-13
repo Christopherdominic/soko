@@ -264,7 +264,7 @@ fn de_i64<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<i64, D::Error>
 // ---------- TLS ----------
 
 /// Standard verification against Mozilla's root CAs (hosted nodes such as Voltage).
-fn public_roots_tls_config() -> Result<rustls::ClientConfig> {
+pub fn public_roots_tls_config() -> Result<rustls::ClientConfig> {
     let roots = rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
     };

@@ -19,6 +19,8 @@ chs=json.load(sys.stdin)['channels']
 print(any(c['peer_id']=='$alice_pub' and c['state'] in ('CHANNELD_NORMAL','CHANNELD_AWAITING_LOCKIN') for c in chs))")
 if [ "$has_channel" = "True" ]; then
   echo "Channel from customer to merchant already exists."
+  # After a restart the nodes may not reconnect on their own.
+  customer_cli connect "$alice_pub" alice 9735 >/dev/null 2>&1 && echo "Customer node connected to merchant node."
 else
   funds=$(customer_cli listfunds | python3 -c 'import json,sys; print(sum(o["amount_msat"] for o in json.load(sys.stdin)["outputs"] if o["status"]=="confirmed")//1000)')
   if [ "$funds" -lt $((CHANNEL_SATS + 100000)) ]; then

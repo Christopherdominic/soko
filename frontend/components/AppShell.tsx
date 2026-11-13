@@ -3,16 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { LayoutDashboard, LogOut, QrCode, ReceiptText } from "lucide-react";
+import { Banknote, LayoutDashboard, LogOut, QrCode, ReceiptText, Settings } from "lucide-react";
 import { RequireMerchant, useMerchant } from "@/hooks/useMerchant";
 import { Logo, LogoMark } from "@/components/Logo";
 import { api } from "@/lib/api";
 
 const NAV = [
-  { href: "/", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/receive", label: "Receive", Icon: QrCode },
-  { href: "/history", label: "Transactions", Icon: ReceiptText },
+  { href: "/", label: "Dashboard", short: "Home", Icon: LayoutDashboard },
+  { href: "/receive", label: "Receive", short: "Receive", Icon: QrCode },
+  { href: "/history", label: "Transactions", short: "History", Icon: ReceiptText },
+  { href: "/cashout", label: "Cash out", short: "Cash out", Icon: Banknote },
+  { href: "/settings", label: "Settings", short: "Settings", Icon: Settings },
 ];
+/** Bottom-tab order on phones: Receive sits in the middle. */
+const MOBILE_ORDER = ["/", "/history", "/receive", "/cashout", "/settings"];
 
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -111,8 +115,8 @@ function Shell({ children }: { children: ReactNode }) {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
-        <div className="mx-auto grid max-w-md grid-cols-3 items-end">
-          {NAV.map(({ href, label, Icon }) => {
+        <div className="mx-auto grid max-w-md grid-cols-5 items-end">
+          {MOBILE_ORDER.map((h) => NAV.find((n) => n.href === h)!).map(({ href, short: label, Icon }) => {
             const active = isActive(pathname, href);
             if (href === "/receive") {
               return (
@@ -129,10 +133,10 @@ function Shell({ children }: { children: ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 py-2.5 text-xs font-semibold ${active ? "text-forest" : "text-muted"}`}
+                className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${active ? "text-forest" : "text-muted"}`}
               >
                 <Icon aria-hidden className="h-5 w-5" />
-                {label === "Transactions" ? "History" : label}
+                {label}
               </Link>
             );
           })}

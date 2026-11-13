@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import { Check, CheckCircle2, ChevronLeft, Copy, MinusCircle, QrCode, ReceiptText, XCircle } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatFiat } from "@/lib/money";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button, ButtonLink, Card, Loading } from "@/components/ui";
 import type { Payment } from "@/types/api";
@@ -127,6 +128,7 @@ function PendingView({ payment }: { payment: Payment }) {
         <p className="tabular mt-4 font-heading text-4xl font-extrabold text-forest sm:text-5xl">
           {formatNumber(payment.amount_sats)} <span className="text-2xl font-bold text-muted">sats</span>
         </p>
+        {payment.fiat && <p className="tabular mt-1 text-lg font-semibold text-charcoal">≈ {formatFiat(payment.fiat)}</p>}
         {payment.description && <p className="mt-1 text-lg text-muted">{payment.description}</p>}
 
         <div className="mt-6">
@@ -157,7 +159,9 @@ function PaidView({ payment }: { payment: Payment }) {
       <div className="bg-emerald-50 px-6 py-10 text-center" role="status">
         <CheckCircle2 aria-hidden className="mx-auto h-16 w-16 text-emerald-600" strokeWidth={1.75} />
         <p className="mt-4 font-heading text-2xl font-extrabold text-emerald-900">Payment received</p>
-        <p className="tabular mt-1 text-lg text-emerald-900/80">{formatNumber(payment.amount_sats)} sats</p>
+        <p className="tabular mt-1 text-lg text-emerald-900/80">
+          {formatNumber(payment.amount_sats)} sats{payment.fiat && <> · {formatFiat(payment.fiat)}</>}
+        </p>
         <p className="mt-2 text-sm text-emerald-900/70">Confirmed by your Lightning node</p>
       </div>
       <dl className="divide-y divide-line">

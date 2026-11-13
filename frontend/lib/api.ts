@@ -4,6 +4,9 @@ import type {
   MerchantWithKey,
   NostrEvent,
   Payment,
+  Payout,
+  Rate,
+  Settings,
   PaymentList,
   PaymentStatus,
   PublicReceipt,
@@ -65,8 +68,12 @@ export const api = {
     post<MerchantWithKey>("/auth/register", { business_name, email, password }),
   logout: () => post<void>("/auth/logout"),
 
-  createInvoice: (amount_sats: number, description?: string) =>
-    post<Payment>("/payments/invoices", { amount_sats, description: description || null }),
+  /** Pass sats, or a decimal string in the merchant's currency (converted server-side). */
+  createInvoice: (amount: { sats: number } | { fiat: string }, description?: string) =>
+    post<Payment>("/payments/invoices", {
+      ...("sats" in amount ? { amount_sats: amount.sats } : { fiat_amount: amount.fiat }),
+      description: description || null,
+    }),
   payment: (hash: string) => request<Payment>(`/payments/${encodeURIComponent(hash)}`),
   payments: (f: PaymentFilters = {}) => {
     const q = new URLSearchParams();
@@ -82,4 +89,12 @@ export const api = {
   publicReceipt: (number: string) =>
     request<PublicReceipt>(`/public/receipts/${encodeURIComponent(number)}`),
   verifyReceipt: (event: NostrEvent) => post<VerifyResult>("/public/receipts/verify", event),
+
+  settings: () => request<Settings>("/settings"),
+  updateSettings: (currency: string) =>
+    request<Settings>("/settings", { method: "PUT", body: JSON.stringify({ currency }) }),
+  rate: () => request<Rate>("/rates"),
+  payouts: () => request<{ payouts: Payout[] }>("/payouts"),
+  createPayout: (p: { fiat_amount?: string; amount_sats?: number; provider: string; destination: string }) =>
+    post<Payout>("/payouts", p),
 };

@@ -33,6 +33,12 @@
 | **Rate limits keyed by account, merchant or globally** | Next.js forwards client-supplied `X-Forwarded-For`, so IP keys can be spoofed. Per-IP limits apply only behind a trusted proxy. |
 | **Backend not published in Docker** | Only the frontend container can reach it, which shrinks the attack surface and keeps the same-origin cookie model. |
 
+## Local currencies and cash-out
+
+- **Rates:** `fx::RateService` keeps BTC/USD (Kraken, CoinGecko fallback, every 5 min) and USD→local rates (open.er-api.com, every 6 h) in memory, keeping the last known values if a source fails.
+- **Pricing:** a merchant can enter a price in their currency. The backend converts it to sats with its own fresh rate and stores the local amount and rate on the payment, so receipts show what the customer paid in local terms. Amounts are stored as integers in each currency's minor unit (ISO 4217 decimals).
+- **Cash-out (demo):** records a cash-out to a mobile-money or bank channel for the merchant's currency at the live rate and reduces the available balance. No money moves. In production, the merchant's own node would pay a cash-out provider (for example, a mobile-money Lightning address in Kenya) using a separate spend-capable credential with limits and confirmation. Soko's own credential stays invoice-only.
+
 ## Custody model
 
 Soko is **non-custodial**: each merchant deployment connects to the merchant's own LND node, so funds settle directly into the merchant's channels. Soko never holds private keys or seed phrases, and its macaroon cannot send payments.

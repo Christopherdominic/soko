@@ -44,6 +44,10 @@ Reviewed in Milestone 4 (security pass). Each mitigation listed as tested has an
 | Large or slow requests | 64 KB body limit, 30 s request timeout. |
 | Clickjacking / MIME sniffing / XSS impact | CSP (`default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy`. API responses are `Cache-Control: no-store`. |
 | Container compromise | Backend runs as a non-root user and isn't published to the host; LND cert and macaroon are mounted read-only. |
+| Manipulated exchange rate | The server converts local prices with its own live rate (Kraken → CoinGecko fallback, × daily FX). Any client-sent rate is ignored (tested). Rates older than 30 min are not used to price invoices; implausible BTC prices are rejected. Rates never affect payment verification, which is done in sats by LND. |
+| Cash-out overdraw | Demo cash-outs lock the merchant row and check `paid sales − previous cash-outs` in one transaction; concurrent requests can't exceed the balance (tested). |
+| Cash-out destination leakage | Only the last 4 digits of the phone/account number are stored or returned. |
+| Mistaking demo cash-outs for real ones | Every payout row is `is_demo = true`, enforced by a database CHECK. The UI labels every cash-out screen and record DEMO. Soko's invoice-only macaroon cannot spend, so a real cash-out is impossible by design. |
 | SQL injection | All values are bound parameters; sqlx 0.9 rejects SQL strings built at runtime. |
 | Path injection into LND URLs | Payment hashes must match `^[0-9a-f]{64}$` before use. |
 

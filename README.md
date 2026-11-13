@@ -11,6 +11,8 @@ Soko helps small businesses and market traders accept Bitcoin over the Lightning
 - **Payments verified by the merchant's own node:** a payment is marked paid only when the merchant's LND node reports the invoice settled for the right amount. The browser can never mark something paid.
 - **Digital receipts:** every payment gets a receipt number and a shareable customer link. Receipts are signed as **Nostr** events, so anyone can check they're genuine, and they contain no payment secrets or customer data.
 - **Business records:** today's sales, totals, waiting payments, and a searchable history filtered by date and status.
+- **Local currencies:** 24 African currencies (KES, NGN, GHS, ZAR, UGX, TZS, RWF, XOF, XAF, ETB, EGP and more) plus USD. Merchants can price in their own currency; the server converts to sats at a live rate and records it on the payment and receipt.
+- **Cash out (demo):** a mobile-money and bank cash-out flow (M-Pesa, MTN MoMo, Orange Money, Wave, Airtel Money, telebirr and others, per currency). It is clearly labelled **DEMO**: it records the cash-out at the live rate but **moves no money**.
 - **Non-custodial:** Soko never holds funds or keys. Its LND credential can create invoices but **cannot spend**.
 
 ## Quick start (Docker + Polar)
@@ -60,11 +62,14 @@ Design decisions are in **[docs/architecture.md](docs/architecture.md)**; the th
 | POST | `/api/auth/login` | – | Log in (sets `HttpOnly` session cookie) |
 | POST | `/api/auth/logout` | ✓ | End session |
 | GET | `/api/auth/me` | ✓ | Current merchant and receipt-signing key |
-| POST | `/api/payments/invoices` | ✓ | Create invoice `{amount_sats, description?}` |
+| POST | `/api/payments/invoices` | ✓ | Create invoice `{amount_sats}` or `{fiat_amount}` (merchant currency), `description?` |
 | GET | `/api/payments` | ✓ | History `?status=&q=&from=&to=&tz=&limit=&offset=` |
 | GET | `/api/payments/{payment_hash}` | ✓ | Payment status (re-verified with LND if pending) |
 | GET | `/api/payments/{payment_hash}/receipt` | ✓ | Receipt with signed Nostr event and share link |
 | GET | `/api/dashboard/summary` | ✓ | Today and total sales, counts, last 7 days `?tz=` |
+| GET / PUT | `/api/settings` | ✓ | Merchant currency and the supported currency list |
+| GET | `/api/rates` | ✓ | Live BTC price in the merchant's currency |
+| GET / POST | `/api/payouts` | ✓ | Demo cash-outs (recorded only, no funds move) |
 | GET | `/api/public/receipts/{receipt_number}` | – | Customer receipt (paper-receipt fields only) |
 | POST | `/api/public/receipts/verify` | – | Verify a signed receipt event |
 

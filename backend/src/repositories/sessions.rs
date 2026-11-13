@@ -22,7 +22,7 @@ pub async fn insert(
 /// Looks up the merchant for a live (unexpired) session.
 pub async fn find_merchant(db: &PgPool, token_hash: &[u8]) -> sqlx::Result<Option<Merchant>> {
     sqlx::query_as::<_, Merchant>(
-        "SELECT m.id, m.business_name, m.email, m.password_hash, m.nostr_pubkey, m.created_at
+        "SELECT m.id, m.business_name, m.email, m.password_hash, m.nostr_pubkey, m.currency, m.created_at
          FROM sessions s JOIN merchants m ON m.id = s.merchant_id
          WHERE s.token_hash = $1 AND s.expires_at > now()",
     )

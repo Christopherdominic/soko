@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { CheckCircle2, Clock3, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, Banknote, CheckCircle2, Clock3, TrendingUp, Wallet } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { formatFiat } from "@/lib/money";
 import { Card, CardHeader, Loading } from "@/components/ui";
 import { SalesChart } from "@/components/SalesChart";
 import type { DashboardSummary } from "@/types/api";
@@ -46,14 +47,30 @@ export function DashboardStats() {
           <div className="flex items-center gap-2 text-sm text-ivory/75">
             <Wallet aria-hidden className="h-4 w-4" /> Today&apos;s sales
           </div>
-          <p className="tabular mt-3 font-heading text-3xl font-extrabold text-lime">
-            {formatNumber(s.today_sales_sats)} <span className="text-lg font-bold text-lime/80">sats</span>
-          </p>
-          <p className="mt-1 text-sm text-ivory/70">
-            {s.today_count} {s.today_count === 1 ? "payment" : "payments"} today
-          </p>
+          {s.today_sales_fiat ? (
+            <>
+              <p className="tabular mt-3 font-heading text-3xl font-extrabold text-lime">{formatFiat(s.today_sales_fiat)}</p>
+              <p className="tabular mt-1 text-sm text-ivory/70">
+                {formatNumber(s.today_sales_sats)} sats · {s.today_count} {s.today_count === 1 ? "payment" : "payments"}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="tabular mt-3 font-heading text-3xl font-extrabold text-lime">
+                {formatNumber(s.today_sales_sats)} <span className="text-lg font-bold text-lime/80">sats</span>
+              </p>
+              <p className="mt-1 text-sm text-ivory/70">
+                {s.today_count} {s.today_count === 1 ? "payment" : "payments"} today
+              </p>
+            </>
+          )}
         </div>
-        <Stat icon={<TrendingUp aria-hidden className="h-4 w-4" />} label="Total sales" value={formatNumber(s.total_sales_sats)} unit="sats" />
+        <Stat
+          icon={<TrendingUp aria-hidden className="h-4 w-4" />}
+          label="Total sales"
+          value={s.total_sales_fiat ? formatFiat(s.total_sales_fiat) : formatNumber(s.total_sales_sats)}
+          unit={s.total_sales_fiat ? `${formatNumber(s.total_sales_sats)} sats` : "sats"}
+        />
         <Stat
           icon={<CheckCircle2 aria-hidden className="h-4 w-4" />}
           label="Paid"
@@ -70,6 +87,29 @@ export function DashboardStats() {
           highlight={s.pending_count > 0}
         />
       </div>
+
+      <Link
+        href="/cashout"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-4 shadow-[var(--shadow-card)] transition-colors hover:border-forest/40"
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-soft text-forest">
+            <Banknote aria-hidden className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block text-sm text-muted">Available to cash out</span>
+            <span className="tabular block font-heading text-lg font-extrabold">
+              {s.available_fiat ? formatFiat(s.available_fiat) : `${formatNumber(s.available_sats)} sats`}
+              {s.available_fiat && (
+                <span className="ml-2 text-sm font-medium text-muted">{formatNumber(s.available_sats)} sats</span>
+              )}
+            </span>
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1 text-sm font-semibold text-forest">
+          Cash out to {s.currency} <ArrowRight aria-hidden className="h-4 w-4" />
+        </span>
+      </Link>
 
       <Card>
         <CardHeader

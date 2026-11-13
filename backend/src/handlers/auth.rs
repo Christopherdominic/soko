@@ -41,6 +41,7 @@ pub struct MerchantResponse {
     email: String,
     /// Public key that signs this merchant's receipts (NIP-19 npub).
     nostr_npub: Option<String>,
+    currency: String,
 }
 
 impl From<Merchant> for MerchantResponse {
@@ -50,6 +51,7 @@ impl From<Merchant> for MerchantResponse {
             nostr_npub: m.nostr_pubkey.as_deref().and_then(crate::nostr::npub),
             business_name: m.business_name,
             email: m.email,
+            currency: m.currency,
         }
     }
 }
