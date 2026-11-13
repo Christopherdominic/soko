@@ -36,8 +36,8 @@ impl fmt::Debug for Redacted {
 #[derive(Clone)]
 pub struct LndConfig {
     pub rest_url: Url,
-    /// PEM bytes of LND's tls.cert. Pinned exactly by the client.
-    pub tls_cert_pem: Vec<u8>,
+    /// PEM bytes of LND's tls.cert, pinned exactly. `None` = use public CA roots.
+    pub tls_cert_pem: Option<Vec<u8>>,
     /// Hex-encoded macaroon. Secret: never log it.
     pub macaroon_hex: String,
 }
@@ -47,6 +47,14 @@ impl fmt::Debug for LndConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("LndConfig")
             .field("rest_url", &self.rest_url.as_str())
+            .field(
+                "tls",
+                &if self.tls_cert_pem.is_some() {
+                    "pinned certificate"
+                } else {
+                    "public CA roots"
+                },
+            )
             .field("macaroon_hex", &"<redacted>")
             .finish()
     }
@@ -54,7 +62,12 @@ impl fmt::Debug for LndConfig {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        let bind_addr = env_or("SOKO_BIND_ADDR", "127.0.0.1:4000")
+        // Hosting platforms such as Render assign a port via $PORT.
+        let default_bind = match std::env::var("PORT") {
+            Ok(port) if !port.trim().is_empty() => format!("0.0.0.0:{}", port.trim()),
+            _ => "127.0.0.1:4000".to_string(),
+        };
+        let bind_addr = env_or("SOKO_BIND_ADDR", &default_bind)
             .parse()
             .context("SOKO_BIND_ADDR must be host:port")?;
         let database_url = required("DATABASE_URL")?;
@@ -87,12 +100,34 @@ impl Config {
         if rest_url.scheme() != "https" {
             bail!("LND_REST_URL must use https");
         }
-        let cert_path = PathBuf::from(required("LND_TLS_CERT_PATH")?);
-        let tls_cert_pem = std::fs::read(&cert_path)
-            .with_context(|| format!("reading LND TLS cert at {}", cert_path.display()))?;
-        let macaroon_path = PathBuf::from(required("LND_MACAROON_PATH")?);
-        let macaroon = std::fs::read(&macaroon_path)
-            .with_context(|| format!("reading LND macaroon at {}", macaroon_path.display()))?;
+        // With a cert file we pin LND's self-signed certificate (Polar, self-hosted).
+        // Without one, LND must present a publicly trusted certificate (e.g. Voltage).
+        let tls_cert_pem = match optional("LND_TLS_CERT_PATH") {
+            Some(path) => {
+                let path = PathBuf::from(path);
+                Some(
+                    std::fs::read(&path)
+                        .with_context(|| format!("reading LND TLS cert at {}", path.display()))?,
+                )
+            }
+            None => None,
+        };
+        let macaroon_hex = match (optional("LND_MACAROON_HEX"), optional("LND_MACAROON_PATH")) {
+            (Some(hex_value), _) => {
+                let hex_value = hex_value.trim().to_lowercase();
+                if hex::decode(&hex_value).map_or(true, |b| b.is_empty()) {
+                    bail!("LND_MACAROON_HEX must be a hex-encoded macaroon");
+                }
+                hex_value
+            }
+            (None, Some(path)) => {
+                let path = PathBuf::from(path);
+                let bytes = std::fs::read(&path)
+                    .with_context(|| format!("reading LND macaroon at {}", path.display()))?;
+                hex::encode(bytes)
+            }
+            (None, None) => bail!("set LND_MACAROON_HEX or LND_MACAROON_PATH"),
+        };
 
         Ok(Self {
             bind_addr,
@@ -107,7 +142,7 @@ impl Config {
             lnd: LndConfig {
                 rest_url,
                 tls_cert_pem,
-                macaroon_hex: hex::encode(macaroon),
+                macaroon_hex,
             },
         })
     }
@@ -118,6 +153,10 @@ fn required(key: &str) -> Result<String> {
         .ok()
         .filter(|v| !v.trim().is_empty())
         .with_context(|| format!("missing required environment variable {key}"))
+}
+
+fn optional(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|v| !v.trim().is_empty())
 }
 
 fn env_or(key: &str, default: &str) -> String {

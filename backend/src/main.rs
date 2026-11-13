@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
     let lightning = Arc::new(LndRestClient::new(&config.lnd)?);
     let nostr = match &config.nostr_secret {
         Some(secret) => {
-            let signer = Arc::new(NostrSigner::from_hex(&secret.0)?);
+            let signer = Arc::new(NostrSigner::from_secret(&secret.0)?);
             receipts::backfill_merchant_pubkeys(&db, &signer).await?;
             Some(signer)
         }

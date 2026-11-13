@@ -1,0 +1,56 @@
+# Render Blueprint: PostgreSQL + Rust backend + Next.js frontend.
+# Deploy guide: docs/deploy-render.md
+services:
+  - type: web
+    name: soko-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    buildFilter:
+      paths: ["backend/**"]
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: soko-db
+          property: connectionString
+      # Voltage Mutinynet node, e.g. https://<node>.u.voltageapp.io:8080
+      - key: LND_REST_URL
+        sync: false
+      # Hex invoice macaroon from Voltage (never the admin macaroon).
+      - key: LND_MACAROON_HEX
+        sync: false
+      # Random secret for receipt-signing keys. Never change it after launch.
+      - key: SOKO_NOSTR_SECRET
+        generateValue: true
+      - key: SOKO_COOKIE_SECURE
+        value: "true"
+      - key: SOKO_ALLOW_REGISTRATION
+        value: "true"
+      - key: SOKO_TRUST_PROXY
+        value: "false"
+      - key: RUST_LOG
+        value: soko_backend=info,tower_http=info
+
+  - type: web
+    name: soko-frontend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    buildFilter:
+      paths: ["frontend/**"]
+    healthCheckPath: /login
+    envVars:
+      # Public URL of soko-backend, e.g. https://soko-backend.onrender.com
+      # (used at build time: redeploy the frontend after changing it).
+      - key: SOKO_BACKEND_URL
+        sync: false
+
+databases:
+  - name: soko-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"

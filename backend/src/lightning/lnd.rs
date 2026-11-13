@@ -32,7 +32,10 @@ pub struct LndRestClient {
 
 impl LndRestClient {
     pub fn new(cfg: &LndConfig) -> Result<Self> {
-        let tls = pinned_tls_config(&cfg.tls_cert_pem)?;
+        let tls = match &cfg.tls_cert_pem {
+            Some(pem) => pinned_tls_config(pem)?,
+            None => public_roots_tls_config()?,
+        };
         let mut headers = header::HeaderMap::new();
         let mut mac = header::HeaderValue::from_str(&cfg.macaroon_hex)
             .context("macaroon is not valid header text")?;
@@ -258,7 +261,20 @@ fn de_i64<'de, D: Deserializer<'de>>(d: D) -> std::result::Result<i64, D::Error>
     }
 }
 
-// ---------- TLS pinning ----------
+// ---------- TLS ----------
+
+/// Standard verification against Mozilla's root CAs (hosted nodes such as Voltage).
+fn public_roots_tls_config() -> Result<rustls::ClientConfig> {
+    let roots = rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    };
+    Ok(rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()?
+    .with_root_certificates(roots)
+    .with_no_client_auth())
+}
 
 fn pinned_tls_config(pem: &[u8]) -> Result<rustls::ClientConfig> {
     let cert = CertificateDer::from_pem_slice(pem).context("LND tls.cert is not valid PEM")?;

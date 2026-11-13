@@ -30,6 +30,7 @@ scripts/pay-invoice.sh <lnbcrt... payment request from the app>
 
 - Full setup, development mode and troubleshooting: **[docs/setup.md](docs/setup.md)**
 - Step-by-step demo script, video plan and presentation outline: **[docs/demo-guide.md](docs/demo-guide.md)**
+- Hosting on Render with a Voltage (Mutinynet) Lightning node: **[docs/deploy-render.md](docs/deploy-render.md)**
 
 ## Architecture
 

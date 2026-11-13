@@ -135,7 +135,7 @@ impl TestApp {
             nostr_secret: None,
             lnd: LndConfig {
                 rest_url: "https://localhost:1".parse().unwrap(),
-                tls_cert_pem: vec![],
+                tls_cert_pem: None,
                 macaroon_hex: String::new(),
             },
         };
