@@ -20,7 +20,8 @@ pub struct Config {
     pub trust_proxy: bool,
     /// Hex master secret for deriving merchant Nostr keys. None disables signing.
     pub nostr_secret: Option<Redacted>,
-    pub lnd: LndConfig,
+    /// None when no Lightning node is configured; invoices can't be created.
+    pub lnd: Option<LndConfig>,
 }
 
 /// A secret string whose `Debug` output never shows the value.
@@ -94,40 +95,7 @@ impl Config {
             .filter(|v| !v.trim().is_empty())
             .map(Redacted);
 
-        let rest_url: Url = required("LND_REST_URL")?
-            .parse()
-            .context("LND_REST_URL must be a URL")?;
-        if rest_url.scheme() != "https" {
-            bail!("LND_REST_URL must use https");
-        }
-        // With a cert file we pin LND's self-signed certificate (Polar, self-hosted).
-        // Without one, LND must present a publicly trusted certificate (e.g. Voltage).
-        let tls_cert_pem = match optional("LND_TLS_CERT_PATH") {
-            Some(path) => {
-                let path = PathBuf::from(path);
-                Some(
-                    std::fs::read(&path)
-                        .with_context(|| format!("reading LND TLS cert at {}", path.display()))?,
-                )
-            }
-            None => None,
-        };
-        let macaroon_hex = match (optional("LND_MACAROON_HEX"), optional("LND_MACAROON_PATH")) {
-            (Some(hex_value), _) => {
-                let hex_value = hex_value.trim().to_lowercase();
-                if hex::decode(&hex_value).map_or(true, |b| b.is_empty()) {
-                    bail!("LND_MACAROON_HEX must be a hex-encoded macaroon");
-                }
-                hex_value
-            }
-            (None, Some(path)) => {
-                let path = PathBuf::from(path);
-                let bytes = std::fs::read(&path)
-                    .with_context(|| format!("reading LND macaroon at {}", path.display()))?;
-                hex::encode(bytes)
-            }
-            (None, None) => bail!("set LND_MACAROON_HEX or LND_MACAROON_PATH"),
-        };
+        let lnd = lnd_from_env()?;
 
         Ok(Self {
             bind_addr,
@@ -139,13 +107,56 @@ impl Config {
             session_ttl_hours,
             trust_proxy,
             nostr_secret,
-            lnd: LndConfig {
-                rest_url,
-                tls_cert_pem,
-                macaroon_hex,
-            },
+            lnd,
         })
     }
+}
+
+/// `Ok(None)` when LND_REST_URL is unset: the app runs without taking payments.
+fn lnd_from_env() -> Result<Option<LndConfig>> {
+    if optional("LND_REST_URL").is_none() {
+        return Ok(None);
+    }
+    let rest_url: Url = required("LND_REST_URL")?
+        .parse()
+        .context("LND_REST_URL must be a URL")?;
+    if rest_url.scheme() != "https" {
+        bail!("LND_REST_URL must use https");
+    }
+    // With a cert file we pin LND's self-signed certificate (Polar, self-hosted).
+    // Without one, LND must present a publicly trusted certificate (e.g. Voltage).
+    let tls_cert_pem = match optional("LND_TLS_CERT_PATH") {
+        Some(path) => {
+            let path = PathBuf::from(path);
+            Some(
+                std::fs::read(&path)
+                    .with_context(|| format!("reading LND TLS cert at {}", path.display()))?,
+            )
+        }
+        None => None,
+    };
+    let macaroon_hex = match (optional("LND_MACAROON_HEX"), optional("LND_MACAROON_PATH")) {
+        (Some(hex_value), _) => {
+            let hex_value = hex_value.trim().to_lowercase();
+            if hex::decode(&hex_value).map_or(true, |b| b.is_empty()) {
+                bail!("LND_MACAROON_HEX must be a hex-encoded macaroon");
+            }
+            hex_value
+        }
+        (None, Some(path)) => {
+            let path = PathBuf::from(path);
+            let bytes = std::fs::read(&path)
+                .with_context(|| format!("reading LND macaroon at {}", path.display()))?;
+            hex::encode(bytes)
+        }
+        (None, None) => bail!("set LND_MACAROON_HEX or LND_MACAROON_PATH"),
+    };
+
+    Ok(Some(LndConfig {
+        rest_url,
+        tls_cert_pem,
+        macaroon_hex,
+    }))
 }
 
 fn required(key: &str) -> Result<String> {

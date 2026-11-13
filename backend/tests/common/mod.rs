@@ -133,11 +133,11 @@ impl TestApp {
             session_ttl_hours: 24,
             trust_proxy: true,
             nostr_secret: None,
-            lnd: LndConfig {
+            lnd: Some(LndConfig {
                 rest_url: "https://localhost:1".parse().unwrap(),
                 tls_cert_pem: None,
                 macaroon_hex: String::new(),
-            },
+            }),
         };
         let state = AppState {
             db: db.clone(),

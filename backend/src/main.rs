@@ -4,7 +4,7 @@ use anyhow::Context;
 use soko_backend::{
     MIGRATOR,
     config::Config,
-    lightning::lnd::LndRestClient,
+    lightning::{LightningBackend, NotConfigured, lnd::LndRestClient},
     nostr::NostrSigner,
     routes,
     services::{receipts, watcher},
@@ -37,7 +37,13 @@ async fn main() -> anyhow::Result<()> {
         .context("connecting to PostgreSQL")?;
     MIGRATOR.run(&db).await.context("running migrations")?;
 
-    let lightning = Arc::new(LndRestClient::new(&config.lnd)?);
+    let lightning: Arc<dyn LightningBackend> = match &config.lnd {
+        Some(lnd) => Arc::new(LndRestClient::new(lnd)?),
+        None => {
+            tracing::warn!("LND_REST_URL not set: running without a Lightning node (no payments)");
+            Arc::new(NotConfigured)
+        }
+    };
     let nostr = match &config.nostr_secret {
         Some(secret) => {
             let signer = Arc::new(NostrSigner::from_secret(&secret.0)?);
@@ -58,7 +64,9 @@ async fn main() -> anyhow::Result<()> {
         limits: Default::default(),
     };
 
-    watcher::spawn(state.clone());
+    if state.config.lnd.is_some() {
+        watcher::spawn(state.clone());
+    }
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;
     tracing::info!(%bind_addr, "listening");

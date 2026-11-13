@@ -59,3 +59,30 @@ pub trait LightningBackend: Send + Sync + 'static {
     /// Checks connectivity and that our macaroon is accepted.
     async fn health(&self) -> anyhow::Result<NodeHealth>;
 }
+
+/// Stand-in used when no Lightning node is configured. Every call fails, so the
+/// app runs (login, records) but cannot create or verify payments.
+pub struct NotConfigured;
+
+#[async_trait]
+impl LightningBackend for NotConfigured {
+    async fn create_invoice(
+        &self,
+        _: i64,
+        _: Option<&str>,
+        _: u32,
+    ) -> anyhow::Result<CreatedInvoice> {
+        anyhow::bail!("no Lightning node configured (set LND_REST_URL)")
+    }
+    async fn lookup_invoice(&self, _: &str) -> anyhow::Result<Option<NodeInvoice>> {
+        anyhow::bail!("no Lightning node configured (set LND_REST_URL)")
+    }
+    async fn subscribe_invoices(
+        &self,
+    ) -> anyhow::Result<BoxStream<'static, anyhow::Result<NodeInvoice>>> {
+        anyhow::bail!("no Lightning node configured (set LND_REST_URL)")
+    }
+    async fn health(&self) -> anyhow::Result<NodeHealth> {
+        anyhow::bail!("no Lightning node configured (set LND_REST_URL)")
+    }
+}
