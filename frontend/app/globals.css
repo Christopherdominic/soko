@@ -1,15 +1,25 @@
 @import "tailwindcss";
 
-/* Soko brand palette */
+/* Soko design tokens */
 @theme inline {
   --color-forest: #142d27;
+  --color-forest-800: #1b3a33;
+  --color-forest-600: #2b5248;
   --color-lime: #d9f27e;
+  --color-lime-soft: #eef8c8;
   --color-ivory: #f7f5ed;
   --color-charcoal: #26332f;
   --color-muted: #5f6b67;
-  --color-line: #e3e0d4;
+  --color-subtle: #8a948f;
+  --color-line: #e6e3d8;
+  --color-line-strong: #d6d2c4;
+  --color-surface: #ffffff;
+  /* Chart mark: validated (lightness, chroma, contrast) against white. */
+  --color-chart: #1f7a55;
   --font-sans: var(--font-inter);
   --font-heading: var(--font-manrope);
+  --shadow-card: 0 1px 2px rgb(20 45 39 / 0.05), 0 1px 3px rgb(20 45 39 / 0.04);
+  --shadow-raised: 0 8px 24px -8px rgb(20 45 39 / 0.25);
 }
 
 body {
@@ -21,4 +31,10 @@ h1,
 h2,
 h3 {
   font-family: var(--font-manrope), sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Tabular figures keep amounts aligned in lists and tables. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }

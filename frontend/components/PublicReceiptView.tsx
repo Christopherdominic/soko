@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { FileSearch } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { ReceiptCard } from "@/components/ReceiptCard";
 import { NostrProof } from "@/components/NostrProof";
-import { PublicHeader } from "@/components/PublicHeader";
+import { PublicFooter, PublicHeader } from "@/components/PublicHeader";
+import { Card, EmptyState, Loading } from "@/components/ui";
 import type { PublicReceipt } from "@/types/api";
 
 export function PublicReceiptView() {
@@ -24,9 +26,15 @@ export function PublicReceiptView() {
   return (
     <>
       <PublicHeader />
-      <main className="mx-auto w-full max-w-md flex-1 space-y-4 px-4 py-6">
+      <main className="mx-auto w-full max-w-xl flex-1 space-y-4 px-4 py-8">
         {!receipt ? (
-          <p className="p-6 text-center text-muted">{error ?? "Loading…"}</p>
+          error ? (
+            <Card>
+              <EmptyState icon={<FileSearch aria-hidden className="h-6 w-6" />} title={error} text="Check the link you were sent." />
+            </Card>
+          ) : (
+            <Loading />
+          )
         ) : (
           <>
             <ReceiptCard
@@ -38,10 +46,14 @@ export function PublicReceiptView() {
             <NostrProof signed={receipt.nostr} />
           </>
         )}
-        <p className="text-center text-sm text-muted">
-          Have a receipt file? <Link href="/verify" className="font-semibold text-forest underline">Verify it</Link>
+        <p className="pt-2 text-center text-sm text-muted">
+          Have a receipt file?{" "}
+          <Link href="/verify" className="font-semibold text-forest hover:underline">
+            Verify it
+          </Link>
         </p>
       </main>
+      <PublicFooter />
     </>
   );
 }

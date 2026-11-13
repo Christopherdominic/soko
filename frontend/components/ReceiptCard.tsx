@@ -1,5 +1,9 @@
-import { formatDateTime, formatSats } from "@/lib/format";
+import type { ReactNode } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { formatDate, formatNumber, formatTime } from "@/lib/format";
+import { LogoMark } from "@/components/Logo";
 
+/** Paper-style receipt. Shows only what belongs on a receipt. */
 export function ReceiptCard({
   businessName,
   receiptNumber,
@@ -14,30 +18,43 @@ export function ReceiptCard({
   description?: string | null;
 }) {
   return (
-    <article className="overflow-hidden rounded-3xl border border-line bg-white">
-      <div className="bg-forest px-6 py-5 text-ivory">
-        <p className="text-sm text-lime">Payment receipt</p>
-        <p className="mt-1 text-xl font-extrabold">{businessName}</p>
+    <article className="relative overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
+      <div className="h-1.5 bg-forest" aria-hidden />
+      <div className="px-6 pt-6 pb-5 text-center sm:px-8">
+        <LogoMark className="mx-auto h-10 w-10" />
+        <p className="mt-3 font-heading text-lg font-extrabold text-forest">{businessName}</p>
+        <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">Payment receipt</p>
       </div>
-      <div className="px-6 py-5">
+
+      <div className="mx-6 border-t border-dashed border-line-strong sm:mx-8" aria-hidden />
+
+      <div className="px-6 py-6 text-center sm:px-8">
         <p className="text-sm text-muted">Amount paid</p>
-        <p className="text-3xl font-extrabold">{formatSats(amountSats)}</p>
-        <p className="mt-1 text-sm text-muted">Paid with Bitcoin (Lightning Network)</p>
+        <p className="tabular mt-1 font-heading text-4xl font-extrabold text-charcoal">
+          {formatNumber(amountSats)} <span className="text-xl font-bold text-muted">sats</span>
+        </p>
+        <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Paid with Bitcoin · Lightning
+        </p>
       </div>
-      <dl className="divide-y divide-line border-t border-line">
-        <Row label="Receipt no." value={receiptNumber} mono />
-        {paidAt && <Row label="Date" value={formatDateTime(paidAt)} />}
+
+      <div className="mx-6 border-t border-dashed border-line-strong sm:mx-8" aria-hidden />
+
+      <dl className="space-y-3 px-6 py-5 text-sm sm:px-8">
+        <Row label="Receipt no." value={<span className="font-mono font-semibold">{receiptNumber}</span>} />
+        {paidAt && <Row label="Date" value={formatDate(paidAt)} />}
+        {paidAt && <Row label="Time" value={formatTime(paidAt)} />}
         {description && <Row label="For" value={description} />}
       </dl>
     </article>
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex justify-between gap-4 px-6 py-3">
+    <div className="flex justify-between gap-4">
       <dt className="text-muted">{label}</dt>
-      <dd className={`text-right font-semibold ${mono ? "font-mono" : ""}`}>{value}</dd>
+      <dd className="text-right font-medium text-charcoal">{value}</dd>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
+import { Loading } from "@/components/ui";
 import type { MerchantWithKey as Merchant } from "@/types/api";
 
 const MerchantContext = createContext<Merchant | null>(null);
@@ -30,6 +31,6 @@ export function RequireMerchant({ children }: { children: ReactNode }) {
   }, [router]);
 
   if (error) return <p className="p-6 text-center text-red-700">{error}</p>;
-  if (!merchant) return <p className="p-6 text-center text-muted">Loading…</p>;
+  if (!merchant) return <Loading />;
   return <MerchantContext.Provider value={merchant}>{children}</MerchantContext.Provider>;
 }

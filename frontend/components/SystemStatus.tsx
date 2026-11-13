@@ -5,6 +5,7 @@ import type { HealthResponse } from "@/types/api";
 
 type State = { kind: "loading" } | { kind: "loaded"; health: HealthResponse } | { kind: "error" };
 
+/** Compact connection status: server, records database, Lightning node. */
 export function SystemStatus() {
   const [state, setState] = useState<State>({ kind: "loading" });
 
@@ -20,41 +21,47 @@ export function SystemStatus() {
       }
     };
     load();
-    const id = setInterval(load, 10_000);
+    const id = setInterval(load, 15_000);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
   }, []);
 
-  if (state.kind === "loading") {
-    return <p className="text-muted">Checking connection…</p>;
-  }
-  if (state.kind === "error") {
-    return <Row label="Soko server" ok={false} text="Not reachable" />;
-  }
-  const { health } = state;
-  return (
-    <ul className="space-y-3">
-      <Row label="Soko server" ok text="Online" />
-      <Row label="Records database" ok={health.database === "ok"} text={health.database === "ok" ? "Online" : "Offline"} />
-      <Row
-        label="Lightning node"
-        ok={health.lightning === "ok"}
-        text={health.lightning === "ok" ? "Ready to receive" : health.lightning === "starting" ? "Starting up" : "Offline"}
-      />
-    </ul>
-  );
-}
+  const rows: { label: string; ok: boolean | null; text: string }[] =
+    state.kind === "loading"
+      ? [{ label: "Checking connection", ok: null, text: "…" }]
+      : state.kind === "error"
+        ? [{ label: "Soko server", ok: false, text: "Not reachable" }]
+        : [
+            { label: "Soko server", ok: true, text: "Online" },
+            { label: "Records", ok: state.health.database === "ok", text: state.health.database === "ok" ? "Online" : "Offline" },
+            {
+              label: "Lightning node",
+              ok: state.health.lightning === "ok",
+              text:
+                state.health.lightning === "ok"
+                  ? "Ready to receive"
+                  : state.health.lightning === "starting"
+                    ? "Starting up"
+                    : "Offline",
+            },
+          ];
 
-function Row({ label, ok, text }: { label: string; ok: boolean; text: string }) {
   return (
-    <li className="flex items-center justify-between rounded-xl bg-white px-4 py-3 border border-line">
-      <span className="font-medium">{label}</span>
-      <span className="flex items-center gap-2 text-sm">
-        <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${ok ? "bg-green-600" : "bg-amber-500"}`} />
-        {text}
-      </span>
-    </li>
+    <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3" aria-live="polite">
+      {rows.map((r) => (
+        <li key={r.label} className="flex items-center justify-between gap-3 sm:justify-start">
+          <span className="text-muted">{r.label}</span>
+          <span className="flex items-center gap-1.5 font-medium">
+            <span
+              aria-hidden
+              className={`h-2 w-2 rounded-full ${r.ok === null ? "bg-stone-300" : r.ok ? "bg-emerald-500" : "bg-amber-500"}`}
+            />
+            {r.text}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

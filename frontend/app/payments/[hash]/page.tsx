@@ -1,15 +1,14 @@
 import { Suspense } from "react";
-import { RequireMerchant } from "@/hooks/useMerchant";
-import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
+import { Loading } from "@/components/ui";
 import { PaymentView } from "@/components/PaymentView";
 
 export default function PaymentPage() {
   return (
-    <RequireMerchant>
-      <AppHeader />
-      <Suspense fallback={<p className="p-6 text-center text-muted">Loading…</p>}>
+    <AppShell>
+      <Suspense fallback={<Loading />}>
         <PaymentView />
       </Suspense>
-    </RequireMerchant>
+    </AppShell>
   );
 }

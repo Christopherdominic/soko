@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronDown, Download, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import type { SignedReceipt, VerifyResult } from "@/types/api";
 
@@ -27,24 +28,30 @@ export function NostrProof({ signed }: { signed: SignedReceipt | null }) {
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-white px-4 py-4">
-      <VerifyBadge result={result} />
-      <details className="mt-3 text-sm">
-        <summary className="cursor-pointer font-semibold text-forest">How to verify this receipt</summary>
-        <div className="mt-3 space-y-3 text-muted">
+    <section className="rounded-2xl border border-line bg-surface shadow-[var(--shadow-card)]">
+      <div className="p-5">
+        <VerifyBadge result={result} />
+      </div>
+      <details className="group border-t border-line">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3.5 text-sm font-semibold text-forest">
+          How to verify this receipt
+          <ChevronDown aria-hidden className="h-4 w-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-4 px-5 pb-5 text-sm text-muted">
           <p>
-            This receipt is a signed <strong>Nostr</strong> event. Anyone can check the signature with the merchant&apos;s
-            public key. It contains no payment secrets or customer details.
+            This receipt is a signed <strong className="text-charcoal">Nostr</strong> event. Anyone can check the signature with
+            the merchant&apos;s public key. It contains no payment secrets or customer details.
           </p>
           <Detail label="Merchant public key" value={signed.npub ?? signed.event.pubkey} />
           <Detail label="Event ID" value={signed.event.id} />
           <Detail label="Verification code" value={signed.verification_code} />
           <p>
-            Paid this yourself? SHA-256 of <code>soko/receipt-commitment/v1/</code> + verification code + your payment
-            hash equals the <code>commitment</code> in the event, which proves this receipt is for your payment.
+            Paid this yourself? SHA-256 of <code className="text-charcoal">soko/receipt-commitment/v1/</code> + verification
+            code + your payment hash equals the <code className="text-charcoal">commitment</code> in the event, proving this
+            receipt is for your payment.
           </p>
-          <button onClick={download} className="font-semibold text-forest underline">
-            Download signed receipt (.json)
+          <button onClick={download} className="inline-flex items-center gap-1.5 font-semibold text-forest hover:underline">
+            <Download aria-hidden className="h-4 w-4" /> Download signed receipt (.json)
           </button>
         </div>
       </details>
@@ -53,32 +60,44 @@ export function NostrProof({ signed }: { signed: SignedReceipt | null }) {
 }
 
 export function VerifyBadge({ result }: { result: VerifyResult | null }) {
-  if (!result) return <p className="text-sm text-muted">Checking signature…</p>;
+  if (!result) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Checking signature…
+      </p>
+    );
+  }
   const genuine = result.signature_valid && result.issued_by_known_merchant && result.matches_records;
   return genuine ? (
-    <p className="flex items-start gap-2 font-semibold text-green-800">
-      <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs text-white">✓</span>
-      <span>
-        Genuine receipt, digitally signed by {result.business_name}
-        <span className="block text-sm font-normal text-muted">Matches this merchant&apos;s records on Soko</span>
+    <div className="flex items-start gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
+        <ShieldCheck aria-hidden className="h-5 w-5" />
       </span>
-    </p>
+      <div>
+        <p className="font-semibold text-emerald-900">Genuine receipt</p>
+        <p className="text-sm text-muted">
+          Digitally signed by {result.business_name} and matches their records on Soko.
+        </p>
+      </div>
+    </div>
   ) : (
-    <p className="flex items-start gap-2 font-semibold text-red-800">
-      <span aria-hidden className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-600 text-xs text-white">!</span>
-      <span>
-        Could not verify this receipt
-        <span className="block text-sm font-normal">{result.problem}</span>
+    <div className="flex items-start gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-700">
+        <ShieldAlert aria-hidden className="h-5 w-5" />
       </span>
-    </p>
+      <div>
+        <p className="font-semibold text-red-900">Could not verify this receipt</p>
+        <p className="text-sm text-red-800/80">{result.problem}</p>
+      </div>
+    </div>
   );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
-      <p className="break-all font-mono text-xs text-charcoal">{value}</p>
+      <p className="text-xs font-semibold tracking-wide text-muted uppercase">{label}</p>
+      <p className="mt-0.5 break-all rounded-lg bg-ivory px-2.5 py-1.5 font-mono text-xs text-charcoal">{value}</p>
     </div>
   );
 }
