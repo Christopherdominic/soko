@@ -301,6 +301,22 @@ async fn payout_validation(db: PgPool) {
         .await;
     assert_eq!(r.status, StatusCode::CREATED, "{:?}", r.body);
     assert_eq!(r.body["amount_sats"], 100);
+    assert_eq!(
+        r.body["fiat"]["amount"], "9.10",
+        "records the amount the merchant entered"
+    );
+
+    // An amount that doesn't convert to whole sats exactly still records what was typed.
+    let r = app
+        .request(
+            "POST",
+            "/api/payouts",
+            Some(&cookie),
+            Some(json!({"fiat_amount": "100", "provider": "M-Pesa", "destination": "0712345678"})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::CREATED, "{:?}", r.body);
+    assert_eq!(r.body["fiat"]["amount"], "100.00");
 }
 
 #[sqlx::test(migrator = "soko_backend::MIGRATOR")]

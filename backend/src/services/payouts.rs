@@ -45,16 +45,20 @@ pub async fn create_demo_payout(
         .await
         .filter(|q| q.fresh_for_pricing())
         .ok_or(ApiError::RateUnavailable)?;
-    let amount_sats = match (
+    // When the merchant typed a local amount, record exactly that amount.
+    let (amount_sats, requested_minor) = match (
         req.amount_sats,
         req.fiat_amount.map(str::trim).filter(|s| !s.is_empty()),
     ) {
-        (Some(s), None) => s,
+        (Some(s), None) => (s, None),
         (None, Some(input)) => {
             let minor = currencies::parse_amount(input, cur.decimals).ok_or_else(|| {
                 ApiError::Validation(format!("Enter a valid amount in {}", cur.code))
             })?;
-            currencies::sats_for_fiat(minor, cur.decimals, quote.btc_price)
+            (
+                currencies::sats_for_fiat(minor, cur.decimals, quote.btc_price),
+                Some(minor),
+            )
         }
         _ => return Err(ApiError::Validation("Enter an amount to cash out".into())),
     };
@@ -78,11 +82,9 @@ pub async fn create_demo_payout(
             merchant_id: merchant.id,
             amount_sats,
             currency: cur.code,
-            fiat_amount_minor: currencies::fiat_for_sats(
-                amount_sats,
-                cur.decimals,
-                quote.btc_price,
-            ),
+            fiat_amount_minor: requested_minor.unwrap_or_else(|| {
+                currencies::fiat_for_sats(amount_sats, cur.decimals, quote.btc_price)
+            }),
             btc_price_fiat: quote.btc_price,
             provider: req.provider,
             destination_masked: &destination,
