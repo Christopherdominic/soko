@@ -1,6 +1,6 @@
 # Deploying Soko on Render (with a Voltage Mutinynet node)
 
-This hosts Soko publicly. **Render** runs the website, the backend and the database. **Voltage** runs the merchant's LND node on **Mutinynet**, a public Bitcoin test network: the payments are real Lightning payments with test coins, and anyone can pay from a Mutinynet-compatible wallet.
+This hosts Soko publicly. **Render** runs the website and the backend, **Neon** (or Supabase) hosts the PostgreSQL database, and **Voltage** runs the merchant's LND node on **Mutinynet**, a public Bitcoin test network: the payments are real Lightning payments with test coins, and anyone can pay from a Mutinynet-compatible wallet.
 
 Time needed: about 30–45 minutes, most of it waiting for builds and channel confirmations.
 
@@ -16,14 +16,28 @@ Time needed: about 30–45 minutes, most of it waiting for builds and channel co
 
 > Check: Voltage's dashboard should show an active channel with *inbound* (receivable) balance.
 
-## Part 2: Soko on Render
+## Part 2: Database on Neon (free)
+
+Render allows only one free Postgres per workspace, so Soko uses a free external database.
+
+1. Sign up at [neon.tech](https://neon.tech) and create a project. Pick the region closest to Render's (Frankfurt → **AWS Europe Central (Frankfurt)**).
+2. Copy the connection string, with two changes:
+   - Use the **direct** connection, not the **pooled** one (the pooled host contains `-pooler`). Soko uses prepared statements, which a transaction-mode pooler breaks.
+   - Keep `sslmode=require`. Remove `&channel_binding=require` if present.
+
+   It should look like: `postgresql://user:password@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require`
+
+Soko creates its tables automatically on first start.
+
+## Part 3: Soko on Render
 
 1. Sign up at [render.com](https://render.com) and connect your GitHub account.
-2. **New → Blueprint**, then choose the `soko` repository. Render reads [`render.yaml`](../render.yaml) and proposes three resources: `soko-db` (Postgres), `soko-backend` and `soko-frontend`.
+2. **New → Blueprint**, then choose the `soko` repository. Render reads [`render.yaml`](../render.yaml) and proposes two services: `soko-backend` and `soko-frontend`.
 3. Render asks for the values marked `sync: false`:
 
    | Variable | Value |
    |---|---|
+   | `DATABASE_URL` | the Neon connection string from Part 2 |
    | `LND_REST_URL` | Voltage REST endpoint from Part 1, e.g. `https://<your-node>.u.voltageapp.io:8080` |
    | `LND_MACAROON_HEX` | the **invoice** macaroon (hex) |
    | `SOKO_BACKEND_URL` | `https://soko-backend.onrender.com`, the backend's public URL. If Render gives the backend a different URL (shown on its page after creation), set that and redeploy the frontend. |
@@ -37,7 +51,7 @@ Time needed: about 30–45 minutes, most of it waiting for builds and channel co
 6. Open the frontend URL, **create an account**, and take a test payment (Part 3).
 7. Optional: after you've created your merchant account, set `SOKO_ALLOW_REGISTRATION=false` on `soko-backend` so strangers can't sign up.
 
-## Part 3: Taking a test payment
+## Part 4: Taking a test payment
 
 1. In Soko: **Receive payment**, enter an amount, then **Show QR code**.
 2. Pay the invoice with Mutinynet test coins: from a Mutinynet-compatible Lightning wallet, or by pasting the payment request into a Mutinynet tool that can pay invoices.
@@ -48,7 +62,7 @@ Time needed: about 30–45 minutes, most of it waiting for builds and channel co
 | Limit | Effect on Soko | Workaround |
 |---|---|---|
 | Free web services sleep after 15 min without traffic, and take about a minute to wake | The first visit is slow. While asleep, the background payment watcher doesn't run; payments are still verified as soon as someone opens them, and on wake-up. | Open the site a few minutes before a demo, or move `soko-backend` to the Starter plan. |
-| Free Postgres expires 30 days after creation | Records are lost after that unless upgraded | Upgrade the database, or recreate it after judging. |
+| Neon free plan | Small storage and compute limits; the database pauses when idle, so the first query after a pause takes a moment | Plenty for a demo. |
 | Rate limits are in memory | Reset when the service sleeps or redeploys | Fine for a demo. |
 
 ## Troubleshooting
